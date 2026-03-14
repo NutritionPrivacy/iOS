@@ -1,19 +1,17 @@
-//
-//  AppDelegate.swift
-//  NutritionPrivacy
-//
-//  Created by Philipp Schmid on 13.03.26.
-//
-
+import Dependencies
 import UIKit
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
-
-
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
+        do {
+            try prepareDependencies {
+                try $0.bootstrapDatabase()
+            }
+        } catch {
+            assertionFailure("Failed to bootstrap database: \(error)")
+        }
         return true
     }
 
@@ -33,4 +31,3 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
 
 }
-
