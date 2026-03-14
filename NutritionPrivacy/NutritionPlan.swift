@@ -3,13 +3,13 @@ import SQLiteData
 
 @Table("nutritionPlans")
 struct NutritionPlan: Codable, Hashable, Sendable {
-    let id: UUID = UUID()
+    let id: UUID
     let dailyCalorieTarget: Int
     let proteinGrams: Int
     let carbGrams: Int
     let fatGrams: Int
     let estimatedWeeklyChange: Double
-    let generatedAt: Date = Date()
+    let generatedAt: Date
 
     var calorieSummary: LocalizedStringResource { "\(dailyCalorieTarget) kcal/day" }
     var macroSummary: LocalizedStringResource {
