@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		4A2187C42F64DBA1007DBEEF /* SQLiteData in Frameworks */ = {isa = PBXBuildFile; productRef = 4A2187C32F64DBA1007DBEEF /* SQLiteData */; };
+		4A2188292F65C0DE007DBEEF /* CocoaLumberjackSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 4A2188282F65C0DE007DBEEF /* CocoaLumberjackSwift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -56,6 +57,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4A2188292F65C0DE007DBEEF /* CocoaLumberjackSwift in Frameworks */,
 				4A2187C42F64DBA1007DBEEF /* SQLiteData in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -109,6 +111,7 @@
 			name = NutritionPrivacy;
 			packageProductDependencies = (
 				4A2187C32F64DBA1007DBEEF /* SQLiteData */,
+				4A2188282F65C0DE007DBEEF /* CocoaLumberjackSwift */,
 			);
 			productName = NutritionPrivacy;
 			productReference = 4A21875E2F64CE10007DBEEF /* NutritionPrivacy.app */;
@@ -167,6 +170,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				4A2187C22F64DBA1007DBEEF /* XCRemoteSwiftPackageReference "sqlite-data" */,
+				4A2188272F65C0DE007DBEEF /* XCRemoteSwiftPackageReference "CocoaLumberjack" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 4A21875F2F64CE10007DBEEF /* Products */;
@@ -500,6 +504,14 @@
 				minimumVersion = 1.6.0;
 			};
 		};
+		4A2188272F65C0DE007DBEEF /* XCRemoteSwiftPackageReference "CocoaLumberjack" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/CocoaLumberjack/CocoaLumberjack";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.9.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -507,6 +519,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 4A2187C22F64DBA1007DBEEF /* XCRemoteSwiftPackageReference "sqlite-data" */;
 			productName = SQLiteData;
+		};
+		4A2188282F65C0DE007DBEEF /* CocoaLumberjackSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4A2188272F65C0DE007DBEEF /* XCRemoteSwiftPackageReference "CocoaLumberjack" */;
+			productName = CocoaLumberjackSwift;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
