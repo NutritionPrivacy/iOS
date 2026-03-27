@@ -1,15 +1,10 @@
-//
-//  SceneDelegate.swift
-//  NutritionPrivacy
-//
-//  Created by Philipp Schmid on 13.03.26.
-//
-
 import UIKit
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     var window: UIWindow?
+    private let appState = AppState()
+    private var coordinator: AppCoordinator?
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         guard let windowScene = scene as? UIWindowScene else {
@@ -17,8 +12,15 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
 
         let window = UIWindow(windowScene: windowScene)
-        window.rootViewController = UINavigationController(rootViewController: ViewController())
+        let navigationController = UINavigationController()
+        window.rootViewController = navigationController
         window.makeKeyAndVisible()
+        
+        coordinator = AppCoordinator(
+            rootViewController: navigationController,
+            appState: appState
+        )
+        
         self.window = window
     }
 
