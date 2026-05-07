@@ -99,8 +99,8 @@ final class OnboardingFooterView: UIView {
         primaryButton.configuration = .filled()
         primaryButton.configuration?.cornerStyle = .capsule
         primaryButton.configuration?.buttonSize = .large
-        primaryButton.configuration?.baseBackgroundColor = OnboardingDesign.primaryButtonBackground
-        primaryButton.configuration?.baseForegroundColor = OnboardingDesign.green
+        primaryButton.configuration?.baseBackgroundColor = .primaryGreen
+        primaryButton.configuration?.baseForegroundColor = .white
         primaryButton.titleLabel?.font = .preferredFont(forTextStyle: .body)
         primaryButton.configuration?.contentInsets = NSDirectionalEdgeInsets(top: 16, leading: 24, bottom: 16, trailing: 24)
         secondaryButton.configuration?.cornerStyle = .capsule
@@ -135,12 +135,14 @@ final class OptionButtonListView<Option: Hashable>: UIView {
     private let titleProvider: (Option) -> String
     private let subtitleProvider: (Option) -> String?
     private let imageProvider: (Option) -> UIImage?
+    private let minimumRowHeight: CGFloat?
     private var selectedOption: Option?
 
     var onSelection: ((Option) -> Void)?
 
     init(
         options: [Option],
+        minimumRowHeight: CGFloat? = nil,
         titleProvider: @escaping (Option) -> String,
         subtitleProvider: @escaping (Option) -> String? = { _ in nil },
         imageProvider: @escaping (Option) -> UIImage? = { _ in nil }
@@ -148,6 +150,7 @@ final class OptionButtonListView<Option: Hashable>: UIView {
         self.titleProvider = titleProvider
         self.subtitleProvider = subtitleProvider
         self.imageProvider = imageProvider
+        self.minimumRowHeight = minimumRowHeight
         super.init(frame: .zero)
 
         stack.axis = .vertical
@@ -168,7 +171,7 @@ final class OptionButtonListView<Option: Hashable>: UIView {
             configuration.contentInsets = NSDirectionalEdgeInsets(top: 14, leading: 16, bottom: 14, trailing: 16)
             configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
                 var outgoing = incoming
-                outgoing.font = UIFont.preferredFont(forTextStyle: .subheadline)
+                outgoing.font = .preferredBoldFont(forTextStyle: .subheadline)
                 return outgoing
             }
             configuration.subtitleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
@@ -186,6 +189,9 @@ final class OptionButtonListView<Option: Hashable>: UIView {
             button.layer.shadowOpacity = 0.04
             button.layer.shadowRadius = 8
             button.layer.shadowOffset = CGSize(width: 0, height: 3)
+            if let minimumRowHeight {
+                button.heightAnchor.constraint(greaterThanOrEqualToConstant: minimumRowHeight).isActive = true
+            }
             button.addAction(UIAction { [weak self] _ in
                 self?.onSelection?(option)
             }, for: .touchUpInside)
@@ -209,7 +215,7 @@ final class OptionButtonListView<Option: Hashable>: UIView {
             let isSelected = option == selectedOption
             button.configuration?.baseBackgroundColor = isSelected ? OnboardingDesign.selectedBackground : OnboardingDesign.cardBackground
             button.configuration?.baseForegroundColor = OnboardingDesign.ink
-            button.configuration?.image = isSelected ? UIImage(systemName: "checkmark.circle.fill") : imageProvider(option)
+            button.configuration?.image = imageProvider(option)
             button.layer.borderColor = (isSelected ? OnboardingDesign.green : OnboardingDesign.border)
                 .resolvedColor(with: traitCollection)
                 .cgColor
@@ -219,6 +225,17 @@ final class OptionButtonListView<Option: Hashable>: UIView {
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+}
+
+private extension UIFont {
+    static func preferredBoldFont(forTextStyle textStyle: UIFont.TextStyle) -> UIFont {
+        guard let descriptor = UIFontDescriptor.preferredFontDescriptor(withTextStyle: textStyle)
+            .withSymbolicTraits(.traitBold) else {
+            return .preferredFont(forTextStyle: textStyle)
+        }
+
+        return UIFont(descriptor: descriptor, size: 0)
     }
 }
 

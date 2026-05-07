@@ -11,18 +11,12 @@ final class SexQuestionViewController: UIViewController, OnboardingFooterHosting
     let footerView = OnboardingFooterView()
     private let optionsView = OptionButtonListView<SexForCalculation?>(
         options: [.female, .male, nil],
+        minimumRowHeight: 76,
         titleProvider: { option in
             option.map { String(localized: $0.title) } ?? "Prefer not to say"
         },
         imageProvider: { option in
-            switch option {
-            case .some(.female):
-                return UIImage(systemName: "person.crop.circle.badge.plus")
-            case .some(.male):
-                return UIImage(systemName: "person.crop.circle")
-            case nil:
-                return UIImage(systemName: "face.smiling")
-            }
+            SexOptionIcon.image(for: option)
         }
     )
 
@@ -135,10 +129,73 @@ final class SexQuestionViewController: UIViewController, OnboardingFooterHosting
     }
 }
 
+private enum SexOptionIcon {
+    private static let badgeSize = CGSize(width: 40, height: 40)
+    private static let symbolGlyphSize = CGSize(width: 22, height: 22)
+
+    static func image(for option: SexForCalculation?) -> UIImage {
+        let image: UIImage
+        let color: UIColor
+        let backgroundColor: UIColor
+        let glyphSize: CGSize
+
+        switch option {
+        case .some(.female):
+            image = UIImage(resource: .Onboarding.femaleSymbol)
+            color = UIColor(red: 1.00, green: 0.25, blue: 0.42, alpha: 1.00)
+            backgroundColor = UIColor(red: 1.00, green: 0.91, blue: 0.94, alpha: 1.00)
+            glyphSize = symbolGlyphSize
+        case .some(.male):
+            image = UIImage(resource: .Onboarding.maleSymbol)
+            color = UIColor(red: 0.22, green: 0.55, blue: 1.00, alpha: 1.00)
+            backgroundColor = UIColor(red: 0.91, green: 0.96, blue: 1.00, alpha: 1.00)
+            glyphSize = symbolGlyphSize
+        case nil:
+            image = UIImage(resource: .Onboarding.genderNeutralSymbol)
+            color = UIColor(red: 0.25, green: 0.28, blue: 0.33, alpha: 1.00)
+            backgroundColor = UIColor(red: 0.96, green: 0.97, blue: 0.98, alpha: 1.00)
+            glyphSize = symbolGlyphSize
+        }
+
+        let glyph = image
+            .withRenderingMode(.alwaysTemplate)
+            .scaled(to: glyphSize)
+            .withTintColor(color, renderingMode: .alwaysOriginal)
+
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = UIScreen.main.scale
+        format.opaque = false
+
+        return UIGraphicsImageRenderer(size: badgeSize, format: format).image { _ in
+            backgroundColor.setFill()
+            UIBezierPath(ovalIn: CGRect(origin: .zero, size: badgeSize)).fill()
+
+            glyph.draw(in: CGRect(
+                x: (badgeSize.width - glyphSize.width) / 2,
+                y: (badgeSize.height - glyphSize.height) / 2,
+                width: glyphSize.width,
+                height: glyphSize.height
+            ))
+        }
+    }
+}
+
+private extension UIImage {
+    func scaled(to size: CGSize) -> UIImage {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = UIScreen.main.scale
+        format.opaque = false
+
+        return UIGraphicsImageRenderer(size: size, format: format).image { _ in
+            draw(in: CGRect(origin: .zero, size: size))
+        }
+    }
+}
+
 #if DEBUG
 #Preview {
-    UINavigationController(rootViewController: SexQuestionViewController(
-        viewModel: OnboardingPreviewSupport.makeViewModel(currentStep: .sexForCalculation)
-    ))
+    UINavigationController(
+        rootViewController: OnboardingPreviewSupport.makeFlowViewController(currentStep: .sexForCalculation)
+    )
 }
 #endif
