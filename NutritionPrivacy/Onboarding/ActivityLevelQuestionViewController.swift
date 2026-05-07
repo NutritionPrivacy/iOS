@@ -9,7 +9,38 @@ final class ActivityLevelQuestionViewController: UIViewController, OnboardingFoo
     private let contentContainerView = UIView()
     private let messageLabel = UILabel()
     let footerView = OnboardingFooterView()
-    private let optionsView = OptionButtonListView(options: ActivityLevel.allCases) { String(localized: $0.title) }
+    private let optionsView = OptionButtonListView<ActivityLevel>(
+        options: [.sedentary, .lightlyActive, .moderatelyActive, .veryActive],
+        titleProvider: { String(localized: $0.title) },
+        subtitleProvider: { option in
+            switch option {
+            case .sedentary:
+                return "Little or no exercise"
+            case .lightlyActive:
+                return "1–3 days per week"
+            case .moderatelyActive:
+                return "3–5 days per week"
+            case .veryActive:
+                return "6–7 days per week"
+            case .extremelyActive:
+                return nil
+            }
+        },
+        imageProvider: { option in
+            switch option {
+            case .sedentary:
+                return UIImage(systemName: "figure.seated.side")
+            case .lightlyActive:
+                return UIImage(systemName: "figure.walk")
+            case .moderatelyActive:
+                return UIImage(systemName: "leaf")
+            case .veryActive:
+                return UIImage(systemName: "figure.run")
+            case .extremelyActive:
+                return nil
+            }
+        }
+    )
 
     init(viewModel: OnboardingViewModel) {
         self.viewModel = viewModel
@@ -75,8 +106,8 @@ final class ActivityLevelQuestionViewController: UIViewController, OnboardingFoo
     }
 
     private func configureQuestionContent() {
-        headerView.titleLabel.text = "How active are you day to day?"
-        headerView.subtitleLabel.text = "This covers your baseline movement outside formal exercise."
+        headerView.titleLabel.text = "What’s your activity\nlevel?"
+        headerView.subtitleLabel.text = "This helps us estimate your daily calorie needs."
         footerView.primaryButton.configuration?.title = "Continue"
         optionsView.onSelection = { [weak self] selection in
             self?.viewModel.draft.activityLevel = selection

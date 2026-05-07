@@ -76,9 +76,9 @@ final class PlanPreviewViewController: UIViewController, OnboardingFooterHosting
     }
 
     private func configureQuestionContent() {
-        headerView.titleLabel.text = "Here is your starting plan"
-        headerView.subtitleLabel.text = "Nothing is saved yet. Finish onboarding to persist everything."
-        footerView.primaryButton.configuration?.title = "Finish"
+        headerView.titleLabel.text = "Almost done! Here’s\nyour summary"
+        headerView.subtitleLabel.text = "Here’s a summary of your plan."
+        footerView.primaryButton.configuration?.title = "Looks good!"
     }
 
     private func applySharedModelToView() {
@@ -100,7 +100,7 @@ final class PlanPreviewViewController: UIViewController, OnboardingFooterHosting
     }
 
     private func primaryTapped() {
-        try? viewModel.finishOnboarding()
+        viewModel.submitPlanPreview(from: step)
     }
 
     private func secondaryTapped() {}

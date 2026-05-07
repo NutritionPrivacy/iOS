@@ -9,7 +9,22 @@ final class SexQuestionViewController: UIViewController, OnboardingFooterHosting
     private let contentContainerView = UIView()
     private let messageLabel = UILabel()
     let footerView = OnboardingFooterView()
-    private let optionsView = OptionButtonListView(options: SexForCalculation.allCases) { String(localized: $0.title) }
+    private let optionsView = OptionButtonListView<SexForCalculation?>(
+        options: [.female, .male, nil],
+        titleProvider: { option in
+            option.map { String(localized: $0.title) } ?? "Prefer not to say"
+        },
+        imageProvider: { option in
+            switch option {
+            case .some(.female):
+                return UIImage(systemName: "person.crop.circle.badge.plus")
+            case .some(.male):
+                return UIImage(systemName: "person.crop.circle")
+            case nil:
+                return UIImage(systemName: "face.smiling")
+            }
+        }
+    )
 
     init(viewModel: OnboardingViewModel) {
         self.viewModel = viewModel
@@ -75,8 +90,8 @@ final class SexQuestionViewController: UIViewController, OnboardingFooterHosting
     }
 
     private func configureQuestionContent() {
-        headerView.titleLabel.text = "Which sex should calculations use?"
-        headerView.subtitleLabel.text = "Optional. You can skip this and use a neutral estimate."
+        headerView.titleLabel.text = "What’s your gender?"
+        headerView.subtitleLabel.text = "This helps improve the accuracy of your plan."
         footerView.primaryButton.configuration?.title = "Continue"
         optionsView.onSelection = { [weak self] selection in
             self?.viewModel.draft.sexForCalculation = selection
@@ -104,7 +119,6 @@ final class SexQuestionViewController: UIViewController, OnboardingFooterHosting
     }
 
     private func secondaryTapped() {
-        viewModel.draft.sexForCalculation = nil
         viewModel.navigateNext(from: step)
     }
 

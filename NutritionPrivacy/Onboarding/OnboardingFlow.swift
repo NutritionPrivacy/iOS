@@ -15,6 +15,7 @@ final class OnboardingViewModel {
     var generatedPlan: NutritionPlan?
     var errorMessage: String?
     var isSaving = false
+    var hasSavedOnboarding = false
     @ObservationIgnored weak var router: OnboardingRouting?
 
     var canContinue: Bool {
@@ -69,6 +70,12 @@ final class OnboardingViewModel {
     }
 
     func finishOnboarding() throws {
+        try completeOnboardingDraftIfNeeded()
+        router?.finishOnboarding()
+    }
+
+    func completeOnboardingDraftIfNeeded() throws {
+        guard !hasSavedOnboarding else { return }
         errorMessage = nil
         isSaving = true
         DDLogInfo("Finishing onboarding")
@@ -76,11 +83,24 @@ final class OnboardingViewModel {
 
         do {
             try onboardingClient.completeOnboarding(draft)
+            hasSavedOnboarding = true
             DDLogInfo("Onboarding completed successfully")
         } catch {
             DDLogError("Failed to complete onboarding: \(error)")
             throw error
         }
+    }
+
+    func submitPlanPreview(from step: OnboardingStep) {
+        do {
+            try completeOnboardingDraftIfNeeded()
+            router?.showNextStep(from: step)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func dismissOnboarding() {
         router?.finishOnboarding()
     }
 
@@ -140,19 +160,19 @@ final class OnboardingFlowViewController: UIViewController {
         navigationItem.hidesBackButton = true
 
         progressView.translatesAutoresizingMaskIntoConstraints = false
-        progressView.trackTintColor = .systemGray5
-        progressView.progressTintColor = .systemBlue
+        progressView.trackTintColor = OnboardingDesign.progressTrack
+        progressView.progressTintColor = OnboardingDesign.green
         progressView.layer.cornerRadius = 4
         progressView.clipsToBounds = true
         progressView.transform = CGAffineTransform(scaleX: 1.0, y: 1.5)
         view.addSubview(progressView)
 
         footerContainerView.translatesAutoresizingMaskIntoConstraints = false
-        footerContainerView.backgroundColor = .secondarySystemBackground.withAlphaComponent(0.96)
+        footerContainerView.backgroundColor = UIColor.systemBackground.withAlphaComponent(0.96)
         view.addSubview(footerContainerView)
 
         footerSeparatorView.translatesAutoresizingMaskIntoConstraints = false
-        footerSeparatorView.backgroundColor = .separator
+        footerSeparatorView.backgroundColor = .clear
         footerContainerView.addSubview(footerSeparatorView)
 
         addChild(pageViewController)
@@ -187,6 +207,7 @@ final class OnboardingFlowViewController: UIViewController {
         let viewController = viewController(for: step)
         pageViewController.setViewControllers([viewController], direction: direction, animated: animated)
         progressView.setProgress(viewModel.progressValue, animated: animated)
+        progressView.isHidden = step == .welcome || step == .completion
         hostFooterIfNeeded(for: viewController)
         updateNavigationItems(for: step)
     }
@@ -225,7 +246,7 @@ final class OnboardingFlowViewController: UIViewController {
     }
 
     private func updateNavigationItems(for step: OnboardingStep) {
-        if step.previous != nil {
+        if step.previous != nil && step != .completion {
             navigationItem.leftBarButtonItem = UIBarButtonItem(
                 image: UIImage(systemName: "chevron.left"),
                 primaryAction: UIAction { [weak self] _ in
@@ -252,6 +273,7 @@ final class OnboardingRouter: OnboardingRouting {
         self.viewModel = OnboardingViewModel()
         self.navigationController = UINavigationController()
         viewModel.router = self
+        navigationController.modalPresentationStyle = .fullScreen
         navigationController.setViewControllers([onboardingViewController], animated: false)
     }
 
@@ -275,6 +297,8 @@ final class OnboardingRouter: OnboardingRouting {
 
     private func makeViewController(for step: OnboardingStep) -> UIViewController {
         switch step {
+        case .welcome:
+            return WelcomeOnboardingViewController(viewModel: viewModel)
         case .name:
             return NameQuestionViewController(viewModel: viewModel)
         case .sexForCalculation:
@@ -299,6 +323,8 @@ final class OnboardingRouter: OnboardingRouting {
             return ProteinPreferenceQuestionViewController(viewModel: viewModel)
         case .planPreview:
             return PlanPreviewViewController(viewModel: viewModel)
+        case .completion:
+            return OnboardingCompletionViewController(viewModel: viewModel)
         }
     }
 }

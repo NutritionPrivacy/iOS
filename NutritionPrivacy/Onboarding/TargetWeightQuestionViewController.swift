@@ -9,7 +9,7 @@ final class TargetWeightQuestionViewController: UIViewController, OnboardingFoot
     private let inputContainerView = UIView()
     private let messageLabel = UILabel()
     let footerView = OnboardingFooterView()
-    private let inputViewControl = WeightPickerInputView()
+    private let inputViewControl = TargetWeightDialView()
 
     init(viewModel: OnboardingViewModel) {
         self.viewModel = viewModel
@@ -75,21 +75,14 @@ final class TargetWeightQuestionViewController: UIViewController, OnboardingFoot
     }
 
     private func configureQuestionContent() {
-        headerView.titleLabel.text = "What target weight are you aiming for?"
-        headerView.subtitleLabel.text = "We use this for protein guidance."
+        headerView.titleLabel.text = "What’s your target\nweight?"
+        headerView.subtitleLabel.text = "Set a realistic goal you’d like to achieve."
         footerView.primaryButton.configuration?.title = "Continue"
 
-        inputViewControl.configure(
-            unitTitles: WeightUnit.allCases.map { String(localized: $0.title) },
-            onValueChanged: { [weak self] value in
-                guard let self else { return }
-                self.viewModel.draft.targetWeight = BodyWeight(value: value, unit: self.viewModel.draft.targetWeight.unit)
-            },
-            onUnitChanged: { [weak self] index in
-                guard let self, let unit = WeightUnit.allCases[safe: index] else { return }
-                self.viewModel.draft.targetWeight = self.viewModel.draft.targetWeight.converted(to: unit)
-            }
-        )
+        inputViewControl.onValueChanged = { [weak self] value in
+            guard let self else { return }
+            self.viewModel.draft.targetWeight = BodyWeight(value: value, unit: self.viewModel.draft.targetWeight.unit)
+        }
     }
 
     private func applySharedModelToView() {
@@ -108,7 +101,8 @@ final class TargetWeightQuestionViewController: UIViewController, OnboardingFoot
         applySharedModelToView()
         inputViewControl.render(
             value: viewModel.draft.targetWeight.value,
-            selectedUnitIndex: WeightUnit.allCases.firstIndex(of: viewModel.draft.targetWeight.unit) ?? 0
+            unitTitle: String(localized: viewModel.draft.targetWeight.unit.title),
+            startingValue: viewModel.draft.currentWeight.converted(to: viewModel.draft.targetWeight.unit).value
         )
     }
 

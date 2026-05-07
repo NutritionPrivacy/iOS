@@ -75,8 +75,8 @@ final class CurrentWeightQuestionViewController: UIViewController, OnboardingFoo
     }
 
     private func configureQuestionContent() {
-        headerView.titleLabel.text = "What is your current weight?"
-        headerView.subtitleLabel.text = "We save this as your starting check-in."
+        headerView.titleLabel.text = "What’s your weight?"
+        headerView.subtitleLabel.text = "Choose your preferred unit."
         footerView.primaryButton.configuration?.title = "Continue"
 
         inputViewControl.configure(

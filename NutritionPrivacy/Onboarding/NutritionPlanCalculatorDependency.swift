@@ -46,19 +46,16 @@ extension NutritionPlanCalculator: DependencyKey {
         init(draft: OnboardingDraft, generatedAt: Date) throws {
             guard
                 let goal = draft.goal,
-                let goalPace = draft.goalPace,
-                let activityLevel = draft.activityLevel,
-                let exerciseFrequency = draft.exerciseFrequency,
-                let proteinPreference = draft.proteinPreference
+                let activityLevel = draft.activityLevel
             else {
                 throw OnboardingPersistenceError.incompleteDraft
             }
 
             self.goal = goal
-            self.goalPace = goalPace
+            self.goalPace = draft.goalPaceOrDefault
             self.activityLevel = activityLevel
-            self.exerciseFrequency = exerciseFrequency
-            self.proteinPreference = proteinPreference
+            self.exerciseFrequency = draft.exerciseFrequencyOrDefault
+            self.proteinPreference = draft.proteinPreferenceOrDefault
             self.age = NutritionPlanCalculator.age(from: draft.dateOfBirth, at: generatedAt)
             self.heightInCentimeters = draft.height.centimeters
             self.weightInKilograms = draft.currentWeight.kilograms

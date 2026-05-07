@@ -9,7 +9,20 @@ final class GoalQuestionViewController: UIViewController, OnboardingFooterHostin
     private let contentContainerView = UIView()
     private let messageLabel = UILabel()
     let footerView = OnboardingFooterView()
-    private let optionsView = OptionButtonListView(options: NutritionGoal.allCases) { String(localized: $0.title) }
+    private let optionsView = OptionButtonListView(
+        options: NutritionGoal.allCases,
+        titleProvider: { String(localized: $0.title) },
+        imageProvider: { option in
+            switch option {
+            case .loseWeight:
+                return UIImage(systemName: "arrow.down.right")
+            case .maintainWeight:
+                return UIImage(systemName: "calendar")
+            case .gainWeight:
+                return UIImage(systemName: "arrow.up.right")
+            }
+        }
+    )
 
     init(viewModel: OnboardingViewModel) {
         self.viewModel = viewModel
@@ -75,8 +88,8 @@ final class GoalQuestionViewController: UIViewController, OnboardingFooterHostin
     }
 
     private func configureQuestionContent() {
-        headerView.titleLabel.text = "What is your goal?"
-        headerView.subtitleLabel.text = "This sets the direction for your calorie target."
+        headerView.titleLabel.text = "What’s your goal?"
+        headerView.subtitleLabel.text = "You can change this anytime."
         footerView.primaryButton.configuration?.title = "Continue"
         optionsView.onSelection = { [weak self] selection in
             self?.viewModel.draft.goal = selection

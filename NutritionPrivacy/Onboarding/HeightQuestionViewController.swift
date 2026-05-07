@@ -62,7 +62,7 @@ final class HeightQuestionViewController: UIViewController, OnboardingFooterHost
             inputContainerView.leadingAnchor.constraint(equalTo: rootView.leadingAnchor, constant: 20),
             inputContainerView.trailingAnchor.constraint(equalTo: rootView.trailingAnchor, constant: -20),
             inputContainerView.bottomAnchor.constraint(equalTo: messageLabel.topAnchor, constant: -24),
-            inputContainerView.heightAnchor.constraint(greaterThanOrEqualToConstant: 220),
+            inputContainerView.heightAnchor.constraint(greaterThanOrEqualToConstant: 260),
             inputViewControl.centerYAnchor.constraint(equalTo: inputContainerView.centerYAnchor),
             inputViewControl.leadingAnchor.constraint(equalTo: inputContainerView.leadingAnchor),
             inputViewControl.trailingAnchor.constraint(equalTo: inputContainerView.trailingAnchor),
@@ -73,8 +73,8 @@ final class HeightQuestionViewController: UIViewController, OnboardingFooterHost
     }
 
     private func configureQuestionContent() {
-        headerView.titleLabel.text = "How tall are you?"
-        headerView.subtitleLabel.text = "Use centimeters or total inches."
+        headerView.titleLabel.text = "What’s your height?"
+        headerView.subtitleLabel.text = "Choose your preferred unit."
         footerView.primaryButton.configuration?.title = "Continue"
 
         inputViewControl.configure(

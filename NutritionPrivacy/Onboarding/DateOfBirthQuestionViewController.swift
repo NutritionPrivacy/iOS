@@ -62,11 +62,10 @@ final class DateOfBirthQuestionViewController: UIViewController, OnboardingFoote
             inputContainerView.leadingAnchor.constraint(equalTo: rootView.leadingAnchor, constant: 20),
             inputContainerView.trailingAnchor.constraint(equalTo: rootView.trailingAnchor, constant: -20),
             inputContainerView.bottomAnchor.constraint(equalTo: messageLabel.topAnchor, constant: -24),
-            inputContainerView.heightAnchor.constraint(greaterThanOrEqualToConstant: 280),
-            inputViewControl.centerYAnchor.constraint(equalTo: inputContainerView.centerYAnchor),
+            inputContainerView.heightAnchor.constraint(greaterThanOrEqualToConstant: 160),
+            inputViewControl.topAnchor.constraint(equalTo: inputContainerView.topAnchor),
             inputViewControl.leadingAnchor.constraint(equalTo: inputContainerView.leadingAnchor),
             inputViewControl.trailingAnchor.constraint(equalTo: inputContainerView.trailingAnchor),
-            inputViewControl.topAnchor.constraint(greaterThanOrEqualTo: inputContainerView.topAnchor),
             inputViewControl.bottomAnchor.constraint(lessThanOrEqualTo: inputContainerView.bottomAnchor),
             messageLabel.leadingAnchor.constraint(equalTo: rootView.leadingAnchor, constant: 20),
             messageLabel.trailingAnchor.constraint(equalTo: rootView.trailingAnchor, constant: -20),
@@ -75,8 +74,8 @@ final class DateOfBirthQuestionViewController: UIViewController, OnboardingFoote
     }
 
     private func configureQuestionContent() {
-        headerView.titleLabel.text = "When were you born?"
-        headerView.subtitleLabel.text = "We use this to estimate your baseline calorie needs."
+        headerView.titleLabel.text = "What’s your date\nof birth?"
+        headerView.subtitleLabel.text = "This helps us calculate your calorie needs."
         footerView.primaryButton.configuration?.title = "Continue"
 
         inputViewControl.onDateChanged = { [weak self] date in
