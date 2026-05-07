@@ -78,8 +78,6 @@ final class DateOfBirthQuestionViewController: UIViewController, OnboardingFoote
         headerView.titleLabel.text = "What’s your date\nof birth?"
         headerView.subtitleLabel.text = "This helps us calculate your calorie needs."
         footerView.primaryButton.configuration?.title = "Continue"
-        footerView.primaryButton.configuration?.baseBackgroundColor = .primaryGreen
-        footerView.primaryButton.configuration?.baseForegroundColor = .white
 
         inputViewControl.onDateChanged = { [weak self] date in
             self?.viewModel.draft.dateOfBirth = date

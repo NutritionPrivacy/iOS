@@ -92,8 +92,6 @@ final class WelcomeOnboardingViewController: UIViewController, OnboardingFooterH
         titleLabel.text = "Let’s personalize\nyour experience"
         subtitleLabel.text = "Answer a few quick questions so we can build a plan that works for you."
         footerView.primaryButton.configuration?.title = "Get Started"
-        footerView.primaryButton.configuration?.baseBackgroundColor = OnboardingDesign.prominentGreen
-        footerView.primaryButton.configuration?.baseForegroundColor = .white
         footerView.primaryButton.addAction(UIAction { [weak self] _ in
             guard let self else { return }
             self.viewModel.navigateNext(from: self.step)

@@ -11,16 +11,10 @@ final class GoalQuestionViewController: UIViewController, OnboardingFooterHostin
     let footerView = OnboardingFooterView()
     private let optionsView = OptionButtonListView(
         options: NutritionGoal.allCases,
+        minimumRowHeight: 76,
         titleProvider: { String(localized: $0.title) },
         imageProvider: { option in
-            switch option {
-            case .loseWeight:
-                return UIImage(systemName: "arrow.down.right")
-            case .maintainWeight:
-                return UIImage(systemName: "calendar")
-            case .gainWeight:
-                return UIImage(systemName: "arrow.up.right")
-            }
+            GoalOptionIcon.image(for: option)
         }
     )
 
@@ -132,10 +126,72 @@ final class GoalQuestionViewController: UIViewController, OnboardingFooterHostin
     }
 }
 
+private enum GoalOptionIcon {
+    private static let badgeSize = CGSize(width: 40, height: 40)
+    private static let glyphSize = CGSize(width: 22, height: 22)
+
+    static func image(for option: NutritionGoal) -> UIImage {
+        let image: UIImage
+        let color: UIColor
+        let backgroundColor: UIColor
+
+        switch option {
+        case .loseWeight:
+            image = UIImage(resource: .Onboarding.loseWeightSymbol)
+            color = Self.neutralColor
+            backgroundColor = Self.neutralBackgroundColor
+        case .maintainWeight:
+            image = UIImage(resource: .Onboarding.holdWeightSymbol)
+            color = Self.neutralColor
+            backgroundColor = Self.neutralBackgroundColor
+        case .gainWeight:
+            image = UIImage(resource: .Onboarding.gainWeightSymbol)
+            color = Self.neutralColor
+            backgroundColor = Self.neutralBackgroundColor
+        }
+
+        let glyph = image
+            .withRenderingMode(.alwaysTemplate)
+            .scaled(to: glyphSize)
+            .withTintColor(color, renderingMode: .alwaysOriginal)
+
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = UIScreen.main.scale
+        format.opaque = false
+
+        return UIGraphicsImageRenderer(size: badgeSize, format: format).image { _ in
+            backgroundColor.setFill()
+            UIBezierPath(ovalIn: CGRect(origin: .zero, size: badgeSize)).fill()
+
+            glyph.draw(in: CGRect(
+                x: (badgeSize.width - glyphSize.width) / 2,
+                y: (badgeSize.height - glyphSize.height) / 2,
+                width: glyphSize.width,
+                height: glyphSize.height
+            ))
+        }
+    }
+
+    private static let neutralColor = UIColor(red: 0.25, green: 0.28, blue: 0.33, alpha: 1.00)
+    private static let neutralBackgroundColor = UIColor(red: 0.96, green: 0.97, blue: 0.98, alpha: 1.00)
+}
+
+private extension UIImage {
+    func scaled(to size: CGSize) -> UIImage {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = UIScreen.main.scale
+        format.opaque = false
+
+        return UIGraphicsImageRenderer(size: size, format: format).image { _ in
+            draw(in: CGRect(origin: .zero, size: size))
+        }
+    }
+}
+
 #if DEBUG
 #Preview {
-    UINavigationController(rootViewController: GoalQuestionViewController(
-        viewModel: OnboardingPreviewSupport.makeViewModel(currentStep: .goal)
-    ))
+    UINavigationController(
+        rootViewController: OnboardingPreviewSupport.makeFlowViewController(currentStep: .goal)
+    )
 }
 #endif

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Hold weight symbol">
+  <g fill="none" stroke="#2F333C" stroke-linecap="round" stroke-linejoin="round">
+    <path stroke-width="58" d="M170 352h684" />
+    <circle stroke-width="58" cx="512" cy="352" r="58" />
+    <path stroke-width="58" d="M512 410v126" />
+
+    <path stroke-width="42" d="M293 384 188 580" />
+    <path stroke-width="42" d="M293 384 398 580" />
+    <path stroke-width="58" d="M125 594h336" />
+    <path stroke-width="58" d="M125 594c15 79 84 137 168 137s153-58 168-137" />
+
+    <path stroke-width="42" d="M743 384 638 580" />
+    <path stroke-width="42" d="M743 384 848 580" />
+    <path stroke-width="58" d="M575 594h336" />
+    <path stroke-width="58" d="M575 594c15 79 84 137 168 137s153-58 168-137" />
+  </g>
+</svg>

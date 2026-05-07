@@ -79,8 +79,6 @@ final class OnboardingCompletionViewController: UIViewController, OnboardingFoot
         titleLabel.text = "You’re all set!"
         subtitleLabel.text = "Your personalized plan is ready. Let’s build healthy habits that last a lifetime."
         footerView.primaryButton.configuration?.title = "Go to Dashboard"
-        footerView.primaryButton.configuration?.baseBackgroundColor = OnboardingDesign.prominentGreen
-        footerView.primaryButton.configuration?.baseForegroundColor = .white
         footerView.primaryButton.addAction(UIAction { [weak self] _ in
             self?.viewModel.dismissOnboarding()
         }, for: .touchUpInside)

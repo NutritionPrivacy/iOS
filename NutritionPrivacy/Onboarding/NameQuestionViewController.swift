@@ -64,7 +64,6 @@ final class NameQuestionViewController: UIViewController, OnboardingFooterHostin
         headerView.subtitleLabel.textColor = .secondaryLabel
         headerView.subtitleLabel.setContentCompressionResistancePriority(.required, for: .vertical)
         configureInputAppearance()
-        configureFooterAppearance()
 
         rootView.addSubview(headerView)
         rootView.addSubview(inputContainerView)
@@ -138,22 +137,6 @@ final class NameQuestionViewController: UIViewController, OnboardingFooterHostin
         inputViewControl.textField.layer.borderWidth = 1
         inputViewControl.textField.layer.borderColor = UIColor.lightGray.cgColor
         inputViewControl.textField.font = .roundedSystemFont(ofSize: 20, weight: .regular)
-    }
-
-    private func configureFooterAppearance() {
-        footerView.primaryButton.configuration?.cornerStyle = .large
-        footerView.primaryButton.configuration?.baseBackgroundColor = .primaryGreen
-        footerView.primaryButton.configuration?.baseForegroundColor = .white
-        footerView.primaryButton.configuration?.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
-            var outgoing = incoming
-            outgoing.font = .roundedSystemFont(ofSize: 18, weight: .semibold)
-            return outgoing
-        }
-        footerView.primaryButton.configuration?.contentInsets = NSDirectionalEdgeInsets(top: 21, leading: 24, bottom: 21, trailing: 24)
-        footerView.primaryButton.layer.cornerRadius = 22
-        footerView.primaryButton.layer.borderWidth = 1
-        footerView.primaryButton.layer.borderColor = Design.green.withAlphaComponent(0.16).cgColor
-        footerView.primaryButton.clipsToBounds = true
     }
 
     @available(iOS 26.0, *)
