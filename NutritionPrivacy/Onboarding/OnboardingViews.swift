@@ -465,20 +465,16 @@ final class DateQuestionInputView: UIView {
         super.init(frame: frame)
 
         datePicker.datePickerMode = .date
-        datePicker.preferredDatePickerStyle = .compact
+        datePicker.preferredDatePickerStyle = .wheels
         datePicker.maximumDate = .now
-        datePicker.backgroundColor = OnboardingDesign.fieldBackground
-        datePicker.tintColor = OnboardingDesign.green
-        datePicker.layer.cornerRadius = 10
-        datePicker.layer.borderWidth = 1
-        datePicker.layer.borderColor = OnboardingDesign.border.resolvedColor(with: traitCollection).cgColor
+        datePicker.tintColor = .primaryGreen
         datePicker.addAction(UIAction { [weak self] _ in
             self?.dateDidChange()
         }, for: .valueChanged)
 
         addSubview(datePicker)
         datePicker.pinEdges(to: self, insets: UIEdgeInsets(top: 0, left: 0, bottom: 0, right: 0))
-        datePicker.heightAnchor.constraint(equalToConstant: 52).isActive = true
+        datePicker.heightAnchor.constraint(equalToConstant: 216).isActive = true
     }
 
     func setDate(_ date: Date) {

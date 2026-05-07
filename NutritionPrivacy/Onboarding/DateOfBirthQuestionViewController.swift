@@ -63,9 +63,10 @@ final class DateOfBirthQuestionViewController: UIViewController, OnboardingFoote
             inputContainerView.trailingAnchor.constraint(equalTo: rootView.trailingAnchor, constant: -20),
             inputContainerView.bottomAnchor.constraint(equalTo: messageLabel.topAnchor, constant: -24),
             inputContainerView.heightAnchor.constraint(greaterThanOrEqualToConstant: 160),
-            inputViewControl.topAnchor.constraint(equalTo: inputContainerView.topAnchor),
             inputViewControl.leadingAnchor.constraint(equalTo: inputContainerView.leadingAnchor),
             inputViewControl.trailingAnchor.constraint(equalTo: inputContainerView.trailingAnchor),
+            inputViewControl.centerYAnchor.constraint(equalTo: inputContainerView.centerYAnchor),
+            inputViewControl.topAnchor.constraint(greaterThanOrEqualTo: inputContainerView.topAnchor),
             inputViewControl.bottomAnchor.constraint(lessThanOrEqualTo: inputContainerView.bottomAnchor),
             messageLabel.leadingAnchor.constraint(equalTo: rootView.leadingAnchor, constant: 20),
             messageLabel.trailingAnchor.constraint(equalTo: rootView.trailingAnchor, constant: -20),
@@ -77,6 +78,8 @@ final class DateOfBirthQuestionViewController: UIViewController, OnboardingFoote
         headerView.titleLabel.text = "What’s your date\nof birth?"
         headerView.subtitleLabel.text = "This helps us calculate your calorie needs."
         footerView.primaryButton.configuration?.title = "Continue"
+        footerView.primaryButton.configuration?.baseBackgroundColor = .primaryGreen
+        footerView.primaryButton.configuration?.baseForegroundColor = .white
 
         inputViewControl.onDateChanged = { [weak self] date in
             self?.viewModel.draft.dateOfBirth = date
@@ -121,8 +124,8 @@ final class DateOfBirthQuestionViewController: UIViewController, OnboardingFoote
 
 #if DEBUG
 #Preview {
-    UINavigationController(rootViewController: DateOfBirthQuestionViewController(
-        viewModel: OnboardingPreviewSupport.makeViewModel(currentStep: .dateOfBirth)
-    ))
+    UINavigationController(
+        rootViewController: OnboardingPreviewSupport.makeFlowViewController(currentStep: .dateOfBirth)
+    )
 }
 #endif

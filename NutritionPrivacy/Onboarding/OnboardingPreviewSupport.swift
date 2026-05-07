@@ -1,5 +1,6 @@
 #if DEBUG
 import Foundation
+import UIKit
 
 @MainActor
 enum OnboardingPreviewSupport {
@@ -17,6 +18,49 @@ enum OnboardingPreviewSupport {
             generatedAt: .now
         )
         return viewModel
+    }
+
+    static func makeFlowViewController(currentStep: OnboardingStep) -> UIViewController {
+        let viewModel = makeViewModel(currentStep: currentStep)
+        return OnboardingFlowViewController(viewModel: viewModel) { step in
+            makeQuestionViewController(for: step, viewModel: viewModel)
+        }
+    }
+
+    private static func makeQuestionViewController(
+        for step: OnboardingStep,
+        viewModel: OnboardingViewModel
+    ) -> UIViewController {
+        switch step {
+        case .welcome:
+            return WelcomeOnboardingViewController(viewModel: viewModel)
+        case .name:
+            return NameQuestionViewController(viewModel: viewModel)
+        case .sexForCalculation:
+            return SexQuestionViewController(viewModel: viewModel)
+        case .dateOfBirth:
+            return DateOfBirthQuestionViewController(viewModel: viewModel)
+        case .height:
+            return HeightQuestionViewController(viewModel: viewModel)
+        case .currentWeight:
+            return CurrentWeightQuestionViewController(viewModel: viewModel)
+        case .goal:
+            return GoalQuestionViewController(viewModel: viewModel)
+        case .targetWeight:
+            return TargetWeightQuestionViewController(viewModel: viewModel)
+        case .goalPace:
+            return GoalPaceQuestionViewController(viewModel: viewModel)
+        case .activityLevel:
+            return ActivityLevelQuestionViewController(viewModel: viewModel)
+        case .exerciseFrequency:
+            return ExerciseFrequencyQuestionViewController(viewModel: viewModel)
+        case .proteinPreference:
+            return ProteinPreferenceQuestionViewController(viewModel: viewModel)
+        case .planPreview:
+            return PlanPreviewViewController(viewModel: viewModel)
+        case .completion:
+            return OnboardingCompletionViewController(viewModel: viewModel)
+        }
     }
 }
 
