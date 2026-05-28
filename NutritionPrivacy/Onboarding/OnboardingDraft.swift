@@ -77,6 +77,7 @@ enum OnboardingStep: Int, CaseIterable, Hashable, Sendable {
 struct OnboardingDraft: Hashable, Sendable {
     var name = ""
     var sexForCalculation: SexForCalculation?
+    var hasSelectedSexForCalculation = false
     var dateOfBirth = Calendar.autoupdatingCurrent.date(byAdding: .year, value: -30, to: .now) ?? .now
     var height = BodyHeight(value: 170, unit: .centimeters)
     var currentWeight = BodyWeight(value: 70, unit: .kilograms)

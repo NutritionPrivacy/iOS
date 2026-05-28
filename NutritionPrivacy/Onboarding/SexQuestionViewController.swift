@@ -88,6 +88,7 @@ final class SexQuestionViewController: UIViewController, OnboardingFooterHosting
         headerView.subtitleLabel.text = "This helps improve the accuracy of your plan."
         footerView.primaryButton.configuration?.title = "Continue"
         optionsView.onSelection = { [weak self] selection in
+            self?.viewModel.draft.hasSelectedSexForCalculation = true
             self?.viewModel.draft.sexForCalculation = selection
         }
     }
@@ -105,7 +106,10 @@ final class SexQuestionViewController: UIViewController, OnboardingFooterHosting
 
     private func applyModelToView() {
         applySharedModelToView()
-        optionsView.setSelectedOption(viewModel.draft.sexForCalculation)
+        let selectedOption = viewModel.draft.hasSelectedSexForCalculation
+            ? viewModel.draft.sexForCalculation
+            : Optional<SexForCalculation?>.none
+        optionsView.setSelectedOption(selectedOption)
     }
 
     private func primaryTapped() {
