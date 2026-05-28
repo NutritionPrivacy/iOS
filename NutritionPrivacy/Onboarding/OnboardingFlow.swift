@@ -10,7 +10,7 @@ final class OnboardingViewModel {
     @ObservationIgnored @Dependency(\.nutritionPlanCalculator) private var nutritionPlanCalculator
     @ObservationIgnored @Dependency(\.date.now) private var now
 
-    var currentStep: OnboardingStep = .name
+    var currentStep: OnboardingStep = .welcome
     var draft = OnboardingDraft()
     var generatedPlan: NutritionPlan?
     var errorMessage: String?
@@ -23,7 +23,7 @@ final class OnboardingViewModel {
     }
 
     var progressValue: Float {
-        Float(currentStep.progressIndex) / Float(currentStep.progressTotal)
+        Float(draft.progressIndex(for: currentStep)) / Float(draft.progressTotal)
     }
 
     func goNext() -> Bool {
@@ -34,7 +34,9 @@ final class OnboardingViewModel {
             return false
         }
 
-        guard let next = currentStep.next else {
+        draft.alignTargetWeightForSelectedGoal()
+
+        guard let next = draft.nextStep(after: currentStep) else {
             DDLogInfo("Onboarding already at last step=\(currentStep)")
             return false
         }
@@ -58,7 +60,7 @@ final class OnboardingViewModel {
 
     func goBack() -> Bool {
         errorMessage = nil
-        guard let previous = currentStep.previous else {
+        guard let previous = draft.previousStep(before: currentStep) else {
             DDLogInfo("Onboarding already at first step=\(currentStep)")
             return false
         }

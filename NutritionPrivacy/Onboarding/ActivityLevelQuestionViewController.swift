@@ -11,6 +11,7 @@ final class ActivityLevelQuestionViewController: UIViewController, OnboardingFoo
     let footerView = OnboardingFooterView()
     private let optionsView = OptionButtonListView<ActivityLevel>(
         options: [.sedentary, .lightlyActive, .moderatelyActive, .veryActive],
+        minimumRowHeight: 76,
         titleProvider: { String(localized: $0.title) },
         subtitleProvider: { option in
             switch option {
@@ -27,18 +28,7 @@ final class ActivityLevelQuestionViewController: UIViewController, OnboardingFoo
             }
         },
         imageProvider: { option in
-            switch option {
-            case .sedentary:
-                return UIImage(systemName: "figure.seated.side")
-            case .lightlyActive:
-                return UIImage(systemName: "figure.walk")
-            case .moderatelyActive:
-                return UIImage(systemName: "leaf")
-            case .veryActive:
-                return UIImage(systemName: "figure.run")
-            case .extremelyActive:
-                return nil
-            }
+            ActivityOptionIcon.image(for: option)
         }
     )
 
@@ -150,10 +140,68 @@ final class ActivityLevelQuestionViewController: UIViewController, OnboardingFoo
     }
 }
 
+private enum ActivityOptionIcon {
+    private static let badgeSize = CGSize(width: 40, height: 40)
+    private static let glyphSize = CGSize(width: 22, height: 22)
+
+    static func image(for option: ActivityLevel) -> UIImage? {
+        let image: UIImage
+
+        switch option {
+        case .sedentary:
+            image = UIImage(resource: .Onboarding.sedentarySymbol)
+        case .lightlyActive:
+            image = UIImage(resource: .Onboarding.lightlyActiveSymbol)
+        case .moderatelyActive:
+            image = UIImage(systemName: "leaf") ?? UIImage()
+        case .veryActive:
+            image = UIImage(systemName: "figure.run") ?? UIImage()
+        case .extremelyActive:
+            return nil
+        }
+
+        let glyph = image
+            .withRenderingMode(.alwaysTemplate)
+            .scaled(to: glyphSize)
+            .withTintColor(neutralColor, renderingMode: .alwaysOriginal)
+
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = UIScreen.main.scale
+        format.opaque = false
+
+        return UIGraphicsImageRenderer(size: badgeSize, format: format).image { _ in
+            neutralBackgroundColor.setFill()
+            UIBezierPath(ovalIn: CGRect(origin: .zero, size: badgeSize)).fill()
+
+            glyph.draw(in: CGRect(
+                x: (badgeSize.width - glyphSize.width) / 2,
+                y: (badgeSize.height - glyphSize.height) / 2,
+                width: glyphSize.width,
+                height: glyphSize.height
+            ))
+        }
+    }
+
+    private static let neutralColor = UIColor(red: 0.25, green: 0.28, blue: 0.33, alpha: 1.00)
+    private static let neutralBackgroundColor = UIColor(red: 0.96, green: 0.97, blue: 0.98, alpha: 1.00)
+}
+
+private extension UIImage {
+    func scaled(to size: CGSize) -> UIImage {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = UIScreen.main.scale
+        format.opaque = false
+
+        return UIGraphicsImageRenderer(size: size, format: format).image { _ in
+            draw(in: CGRect(origin: .zero, size: size))
+        }
+    }
+}
+
 #if DEBUG
 #Preview {
-    UINavigationController(rootViewController: ActivityLevelQuestionViewController(
-        viewModel: OnboardingPreviewSupport.makeViewModel(currentStep: .activityLevel)
-    ))
+    UINavigationController(
+        rootViewController: OnboardingPreviewSupport.makeFlowViewController(currentStep: .activityLevel)
+    )
 }
 #endif

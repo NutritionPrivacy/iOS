@@ -88,6 +88,51 @@ struct OnboardingDraft: Hashable, Sendable {
     var proteinPreference: ProteinPreference?
     var weeklyCheckInDay: WeeklyCheckInDay = .monday
 
+    var questionSteps: [OnboardingStep] {
+        guard goal == .maintainWeight else {
+            return OnboardingStep.questionSteps
+        }
+
+        return OnboardingStep.questionSteps.filter { $0 != .targetWeight }
+    }
+
+    var flowSteps: [OnboardingStep] {
+        guard goal == .maintainWeight else {
+            return OnboardingStep.flowSteps
+        }
+
+        return OnboardingStep.flowSteps.filter { $0 != .targetWeight }
+    }
+
+    func previousStep(before step: OnboardingStep) -> OnboardingStep? {
+        guard let index = flowSteps.firstIndex(of: step), index > 0 else {
+            return nil
+        }
+        return flowSteps[index - 1]
+    }
+
+    func nextStep(after step: OnboardingStep) -> OnboardingStep? {
+        guard let index = flowSteps.firstIndex(of: step), index < flowSteps.count - 1 else {
+            return nil
+        }
+        return flowSteps[index + 1]
+    }
+
+    func progressIndex(for step: OnboardingStep) -> Int {
+        switch step {
+        case .welcome:
+            return 0
+        case .completion:
+            return questionSteps.count
+        default:
+            return (questionSteps.firstIndex(of: step) ?? 0) + 1
+        }
+    }
+
+    var progressTotal: Int {
+        questionSteps.count
+    }
+
     func canContinue(from step: OnboardingStep) -> Bool {
         switch step {
         case .welcome:
@@ -119,6 +164,11 @@ struct OnboardingDraft: Hashable, Sendable {
         case .completion:
             return true
         }
+    }
+
+    mutating func alignTargetWeightForSelectedGoal() {
+        guard goal == .maintainWeight else { return }
+        targetWeight = currentWeight
     }
 
     var goalPaceOrDefault: GoalPace {

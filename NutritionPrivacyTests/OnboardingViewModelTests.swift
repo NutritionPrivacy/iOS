@@ -6,6 +6,15 @@ import Testing
 struct OnboardingViewModelTests {
 
     @MainActor
+    @Test func startsAtWelcomeAndAdvancesToName() throws {
+        let viewModel = OnboardingViewModel()
+
+        #expect(viewModel.currentStep == .welcome)
+        #expect(viewModel.goNext())
+        #expect(viewModel.currentStep == .name)
+    }
+
+    @MainActor
     @Test func finishOnboardingCompletesWithCurrentDraftAndResetsTransientState() throws {
         let expectedDraft = makeDraft(name: "Taylor")
         let receivedDraft = DraftBox()
@@ -55,6 +64,32 @@ struct OnboardingViewModelTests {
         #expect(viewModel.errorMessage == nil)
         #expect(viewModel.isSaving == false)
     }
+
+    @MainActor
+    @Test func maintainWeightSkipsTargetWeightQuestionAndUsesCurrentWeight() throws {
+        let viewModel = makeNavigationViewModel()
+        viewModel.currentStep = .goal
+        viewModel.draft.currentWeight = BodyWeight(value: 72.5, unit: .kilograms)
+        viewModel.draft.targetWeight = BodyWeight(value: 65, unit: .kilograms)
+        viewModel.draft.goal = .maintainWeight
+        viewModel.draft.activityLevel = .moderatelyActive
+
+        #expect(viewModel.goNext())
+
+        #expect(viewModel.currentStep == .planPreview)
+        #expect(viewModel.draft.targetWeight == viewModel.draft.currentWeight)
+    }
+
+    @MainActor
+    @Test func nonMaintenanceGoalStillShowsTargetWeightQuestion() throws {
+        let viewModel = makeNavigationViewModel()
+        viewModel.currentStep = .goal
+        viewModel.draft.goal = .loseWeight
+
+        #expect(viewModel.goNext())
+
+        #expect(viewModel.currentStep == .targetWeight)
+    }
 }
 
 private func makeDraft(name: String) -> OnboardingDraft {
@@ -71,6 +106,27 @@ private func makeDraft(name: String) -> OnboardingDraft {
     draft.exerciseFrequency = .threeToFour
     draft.proteinPreference = .higherProtein
     return draft
+}
+
+@MainActor
+private func makeNavigationViewModel() -> OnboardingViewModel {
+    withDependencies {
+        $0.nutritionPlanCalculator = NutritionPlanCalculator(
+            calculate: { _, generatedAt in
+                NutritionPlan(
+                    id: UUID(),
+                    dailyCalorieTarget: 2_000,
+                    proteinGrams: 140,
+                    carbGrams: 210,
+                    fatGrams: 67,
+                    estimatedWeeklyChange: 0,
+                    generatedAt: generatedAt
+                )
+            }
+        )
+    } operation: {
+        OnboardingViewModel()
+    }
 }
 
 private final class DraftBox: @unchecked Sendable {
