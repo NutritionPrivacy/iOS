@@ -9,7 +9,7 @@ final class TargetWeightQuestionViewController: UIViewController, OnboardingFoot
     private let inputContainerView = UIView()
     private let messageLabel = UILabel()
     let footerView = OnboardingFooterView()
-    private let inputViewControl = TargetWeightDialView()
+    private let inputViewControl = WeightPickerInputView()
 
     init(viewModel: OnboardingViewModel) {
         self.viewModel = viewModel
@@ -79,10 +79,21 @@ final class TargetWeightQuestionViewController: UIViewController, OnboardingFoot
         headerView.subtitleLabel.text = "Set a realistic goal you’d like to achieve."
         footerView.primaryButton.configuration?.title = "Continue"
 
-        inputViewControl.onValueChanged = { [weak self] value in
-            guard let self else { return }
-            self.viewModel.draft.targetWeight = BodyWeight(value: value, unit: self.viewModel.draft.targetWeight.unit)
-        }
+        syncTargetWeightUnit()
+        inputViewControl.configure(
+            unitTitles: [String(localized: viewModel.draft.currentWeight.unit.title)],
+            onValueChanged: { [weak self] value in
+                guard let self else { return }
+                self.viewModel.draft.targetWeight = BodyWeight(value: value, unit: self.viewModel.draft.currentWeight.unit)
+            },
+            onUnitChanged: { _ in }
+        )
+    }
+
+    private func syncTargetWeightUnit() {
+        let currentWeightUnit = viewModel.draft.currentWeight.unit
+        guard viewModel.draft.targetWeight.unit != currentWeightUnit else { return }
+        viewModel.draft.targetWeight = viewModel.draft.targetWeight.converted(to: currentWeightUnit)
     }
 
     private func applySharedModelToView() {
@@ -99,10 +110,10 @@ final class TargetWeightQuestionViewController: UIViewController, OnboardingFoot
 
     private func applyModelToView() {
         applySharedModelToView()
+        syncTargetWeightUnit()
         inputViewControl.render(
             value: viewModel.draft.targetWeight.value,
-            unitTitle: String(localized: viewModel.draft.targetWeight.unit.title),
-            startingValue: viewModel.draft.currentWeight.converted(to: viewModel.draft.targetWeight.unit).value
+            selectedUnitIndex: 0
         )
     }
 

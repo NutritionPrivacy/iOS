@@ -341,6 +341,7 @@ final class WeightPickerInputView: UIView {
 
     private var selectedUnitIndex = 0
     private var currentValue = 0.0
+    private var unitTitleCount = 0
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -391,6 +392,8 @@ final class WeightPickerInputView: UIView {
         for (index, title) in unitTitles.enumerated() {
             unitControl.insertSegment(withTitle: title, at: index, animated: false)
         }
+        unitTitleCount = unitTitles.count
+        unitControl.isHidden = unitTitles.count <= 1
         unitControl.addAction(UIAction { [weak self] _ in
             self?.unitDidChange()
         }, for: .valueChanged)
@@ -399,7 +402,8 @@ final class WeightPickerInputView: UIView {
     }
 
     func render(value: Double, selectedUnitIndex: Int) {
-        let clampedUnitIndex = max(0, min(selectedUnitIndex, WeightUnit.allCases.count - 1))
+        let maximumUnitIndex = max(unitTitleCount - 1, 0)
+        let clampedUnitIndex = max(0, min(selectedUnitIndex, maximumUnitIndex))
         self.selectedUnitIndex = clampedUnitIndex
         self.currentValue = value
         unitControl.selectedSegmentIndex = clampedUnitIndex
