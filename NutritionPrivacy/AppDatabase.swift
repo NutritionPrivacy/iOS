@@ -153,6 +153,31 @@ extension DependencyValues {
             )
             .execute(db)
         }
+        migrator.registerMigration("Create product preview file import records") { db in
+            try #sql(
+                """
+                ALTER TABLE "productPreviews"
+                ADD COLUMN "fileName" TEXT NOT NULL DEFAULT ''
+                """
+            )
+            .execute(db)
+
+            try #sql(
+                """
+                CREATE TABLE "productPreviewFileImports" (
+                  "id" TEXT PRIMARY KEY NOT NULL,
+                  "fileName" TEXT NOT NULL,
+                  "language" TEXT NOT NULL,
+                  "source" INTEGER NOT NULL,
+                  "sha256" TEXT NOT NULL,
+                  "importedAt" TEXT NOT NULL,
+                  "productCount" INTEGER NOT NULL,
+                  "skippedProductCount" INTEGER NOT NULL
+                ) STRICT
+                """
+            )
+            .execute(db)
+        }
         try migrator.migrate(database)
         defaultDatabase = database
     }

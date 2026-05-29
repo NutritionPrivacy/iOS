@@ -22,7 +22,18 @@ struct ProductPreviewImporter: Sendable {
         )
 
         let manifest = try await fetchManifest()
-        if let cachedSummary = try await cachedSummary(matching: manifest.digest) {
+        let files = manifest.entries.flatMap(\.files)
+        let cachedFileImports = try await cachedFileImportRecords()
+        try await removeStaleFileImports(
+            cachedFileImports.values,
+            currentFileIDs: Set(files.map(\.id))
+        )
+
+        let filesToImport = files.filter { file in
+            cachedFileImports[file.id]?.sha256 != file.normalizedSHA256
+        }
+
+        if filesToImport.isEmpty, let cachedSummary = try await cachedSummary(for: files, cachedFileImports: cachedFileImports) {
             reportProgress(
                 ProductPreviewImportProgress(
                     phase: .finished,
@@ -35,25 +46,23 @@ struct ProductPreviewImporter: Sendable {
             return cachedSummary
         }
 
-        try await database.write { db in
-            try #sql("DELETE FROM \"productPreviewImports\"").execute(db)
-            try #sql("DELETE FROM \"productPreviews\"").execute(db)
-        }
-
-        var importedProductCount = 0
-        var skippedProductCount = 0
+        var skippedProductCount = files
+            .filter { file in !filesToImport.contains { $0.id == file.id } }
+            .reduce(0) { count, file in
+                count + (cachedFileImports[file.id]?.skippedProductCount ?? 0)
+            }
         var importedFileCount = 0
 
-        for file in manifest.entries.flatMap(\.files) {
+        for file in filesToImport {
             let fileSummary = try await importFile(
                 file,
                 reportProgress: reportProgress,
-                existingImportedCount: importedProductCount,
+                existingImportedCount: 0,
                 existingSkippedCount: skippedProductCount
             )
-            importedProductCount += fileSummary.importedProductCount
             skippedProductCount += fileSummary.skippedProductCount
             importedFileCount += 1
+            try await saveFileImportRecord(file, summary: fileSummary)
         }
 
         let storedProductCount = try await database.read { db in
@@ -74,6 +83,11 @@ struct ProductPreviewImporter: Sendable {
                     productCount: summary.importedProductCount,
                     skippedProductCount: summary.skippedProductCount
                 )
+            } onConflictDoUpdate: { updates, excluded in
+                updates.manifestDigest = excluded.manifestDigest
+                updates.importedAt = excluded.importedAt
+                updates.productCount = excluded.productCount
+                updates.skippedProductCount = excluded.skippedProductCount
             }
             .execute(db)
         }
@@ -102,21 +116,51 @@ struct ProductPreviewImporter: Sendable {
         return ProductPreviewManifest(entries: entries)
     }
 
-    private func cachedSummary(matching manifestDigest: String) async throws -> ProductPreviewImportSummary? {
+    private func cachedFileImportRecords() async throws -> [String: ProductPreviewFileImportRecord] {
         try await database.read { db in
-            guard
-                let importRecord = try ProductPreviewImportRecord.find("nightly").fetchOne(db),
-                importRecord.manifestDigest == manifestDigest
-            else { return nil }
+            Dictionary(
+                uniqueKeysWithValues: try ProductPreviewFileImportRecord.all.fetchAll(db)
+                    .map { ($0.id, $0) }
+            )
+        }
+    }
 
+    private func cachedSummary(
+        for files: [ProductPreviewManifestFile],
+        cachedFileImports: [String: ProductPreviewFileImportRecord]
+    ) async throws -> ProductPreviewImportSummary? {
+        guard files.allSatisfy({ cachedFileImports[$0.id] != nil }) else { return nil }
+
+        return try await database.read { db in
             let storedProductCount = try ProductPreview.fetchCount(db)
             guard storedProductCount > 0 else { return nil }
 
             return ProductPreviewImportSummary(
                 importedProductCount: storedProductCount,
-                skippedProductCount: importRecord.skippedProductCount,
+                skippedProductCount: files.reduce(0) { count, file in
+                    count + (cachedFileImports[file.id]?.skippedProductCount ?? 0)
+                },
                 importedFileCount: 0
             )
+        }
+    }
+
+    private func removeStaleFileImports(
+        _ cachedFileImports: some Sequence<ProductPreviewFileImportRecord>,
+        currentFileIDs: Set<String>
+    ) async throws {
+        try await database.write { db in
+            for record in cachedFileImports where !currentFileIDs.contains(record.id) {
+                try ProductPreview
+                    .where {
+                        $0.fileName.eq(record.fileName)
+                            && $0.language.eq(record.language)
+                            && $0.source.eq(record.source)
+                    }
+                    .delete()
+                    .execute(db)
+                try ProductPreviewFileImportRecord.find(record.id).delete().execute(db)
+            }
         }
     }
 
@@ -140,10 +184,11 @@ struct ProductPreviewImporter: Sendable {
             data = try await URLSession.shared.data(from: fileURL).0
         }
 
-        guard Self.digest(data) == file.sha256.lowercased() else {
+        guard Self.digest(data) == file.normalizedSHA256 else {
             throw ProductPreviewImportError.checksumMismatch(fileName: file.name)
         }
 
+        try await removeCachedPreviews(for: file)
         return try await importFileData(
             data,
             file: file,
@@ -151,6 +196,19 @@ struct ProductPreviewImporter: Sendable {
             existingImportedCount: existingImportedCount,
             existingSkippedCount: existingSkippedCount
         )
+    }
+
+    private func removeCachedPreviews(for file: ProductPreviewManifestFile) async throws {
+        try await database.write { db in
+            try ProductPreview
+                .where {
+                    $0.fileName.eq(file.name)
+                        && $0.language.eq(file.language)
+                        && $0.source.eq(file.source)
+                }
+                .delete()
+                .execute(db)
+        }
     }
 
     private func importFileData(
@@ -213,6 +271,7 @@ struct ProductPreviewImporter: Sendable {
             energy: dumpRecord.energy,
             measurement: dumpRecord.measurement,
             source: dumpRecord.source,
+            fileName: file.name,
             importedAt: importedAt
         )
     }
@@ -232,10 +291,39 @@ struct ProductPreviewImporter: Sendable {
                     updates.energy = excluded.energy
                     updates.measurement = excluded.measurement
                     updates.source = excluded.source
+                    updates.fileName = excluded.fileName
                     updates.importedAt = excluded.importedAt
                 }
                 .execute(db)
             }
+        }
+    }
+
+    private func saveFileImportRecord(
+        _ file: ProductPreviewManifestFile,
+        summary: ProductPreviewImportSummary
+    ) async throws {
+        try await database.write { db in
+            try ProductPreviewFileImportRecord.insert {
+                ProductPreviewFileImportRecord(
+                    fileName: file.name,
+                    language: file.language,
+                    source: file.source,
+                    sha256: file.normalizedSHA256,
+                    importedAt: importedAt,
+                    productCount: summary.importedProductCount,
+                    skippedProductCount: summary.skippedProductCount
+                )
+            } onConflictDoUpdate: { updates, excluded in
+                updates.fileName = excluded.fileName
+                updates.language = excluded.language
+                updates.source = excluded.source
+                updates.sha256 = excluded.sha256
+                updates.importedAt = excluded.importedAt
+                updates.productCount = excluded.productCount
+                updates.skippedProductCount = excluded.skippedProductCount
+            }
+            .execute(db)
         }
     }
 }
@@ -290,6 +378,12 @@ private struct ProductPreviewManifestFile: Decodable, Sendable {
     let sha256: String
     let source: ProductPreviewSource
     fileprivate var language: ProductPreviewLanguage = .english
+    fileprivate var id: String {
+        ProductPreviewFileImportRecord.makeID(fileName: name, language: language, source: source)
+    }
+    fileprivate var normalizedSHA256: String {
+        sha256.lowercased()
+    }
 
     private enum CodingKeys: CodingKey {
         case name

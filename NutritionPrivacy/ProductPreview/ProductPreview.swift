@@ -27,6 +27,7 @@ struct ProductPreview: Identifiable, Codable, Hashable, Sendable {
     let energy: Int
     let measurement: ProductMeasurement
     let source: ProductPreviewSource
+    let fileName: String
     let importedAt: Date
 
     init(
@@ -37,6 +38,7 @@ struct ProductPreview: Identifiable, Codable, Hashable, Sendable {
         energy: Int,
         measurement: ProductMeasurement,
         source: ProductPreviewSource,
+        fileName: String,
         importedAt: Date
     ) {
         self.id = Self.makeID(barcode: barcode, language: language, source: source)
@@ -47,6 +49,7 @@ struct ProductPreview: Identifiable, Codable, Hashable, Sendable {
         self.energy = energy
         self.measurement = measurement
         self.source = source
+        self.fileName = fileName
         self.importedAt = importedAt
     }
 
@@ -66,4 +69,43 @@ struct ProductPreviewImportRecord: Identifiable, Hashable, Sendable {
     let importedAt: Date
     let productCount: Int
     let skippedProductCount: Int
+}
+
+@Table("productPreviewFileImports")
+struct ProductPreviewFileImportRecord: Identifiable, Hashable, Sendable {
+    let id: String
+    let fileName: String
+    let language: ProductPreviewLanguage
+    let source: ProductPreviewSource
+    let sha256: String
+    let importedAt: Date
+    let productCount: Int
+    let skippedProductCount: Int
+
+    init(
+        fileName: String,
+        language: ProductPreviewLanguage,
+        source: ProductPreviewSource,
+        sha256: String,
+        importedAt: Date,
+        productCount: Int,
+        skippedProductCount: Int
+    ) {
+        self.id = Self.makeID(fileName: fileName, language: language, source: source)
+        self.fileName = fileName
+        self.language = language
+        self.source = source
+        self.sha256 = sha256
+        self.importedAt = importedAt
+        self.productCount = productCount
+        self.skippedProductCount = skippedProductCount
+    }
+
+    static func makeID(
+        fileName: String,
+        language: ProductPreviewLanguage,
+        source: ProductPreviewSource
+    ) -> String {
+        "\(language.rawValue):\(source.rawValue):\(fileName)"
+    }
 }
