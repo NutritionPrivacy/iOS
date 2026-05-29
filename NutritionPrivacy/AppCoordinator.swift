@@ -1,6 +1,7 @@
 import UIKit
 import Dependencies
 
+@MainActor
 final class AppCoordinator {
     @Dependency(\.onboardingClient) private var onboardingClient
     private let rootViewController: UINavigationController

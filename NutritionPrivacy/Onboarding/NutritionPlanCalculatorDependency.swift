@@ -1,11 +1,14 @@
 import Dependencies
 import Foundation
+import DependenciesMacros
 
+@DependencyClient
 struct NutritionPlanCalculator: Sendable {
     var calculate: @Sendable (_ draft: OnboardingDraft, _ generatedAt: Date) throws -> NutritionPlan
 }
 
 extension NutritionPlanCalculator: DependencyKey {
+    static let testValue = NutritionPlanCalculator()
     static var liveValue: NutritionPlanCalculator {
         NutritionPlanCalculator(calculate: { draft, generatedAt in
             let inputs = try PlanInputs(draft: draft, generatedAt: generatedAt)
