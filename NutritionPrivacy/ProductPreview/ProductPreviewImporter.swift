@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import SQLiteData
 
@@ -21,6 +22,19 @@ struct ProductPreviewImporter: Sendable {
         )
 
         let manifest = try await fetchManifest()
+        if let cachedSummary = try await cachedSummary(matching: manifest.digest) {
+            reportProgress(
+                ProductPreviewImportProgress(
+                    phase: .finished,
+                    completedBytes: 0,
+                    totalBytes: nil,
+                    importedProductCount: cachedSummary.importedProductCount,
+                    skippedProductCount: cachedSummary.skippedProductCount
+                )
+            )
+            return cachedSummary
+        }
+
         try await database.write { db in
             try #sql("DELETE FROM \"productPreviewImports\"").execute(db)
             try #sql("DELETE FROM \"productPreviews\"").execute(db)
@@ -30,7 +44,7 @@ struct ProductPreviewImporter: Sendable {
         var skippedProductCount = 0
         var importedFileCount = 0
 
-        for file in manifest.flatMap(\.files) {
+        for file in manifest.entries.flatMap(\.files) {
             let fileSummary = try await importFile(
                 file,
                 reportProgress: reportProgress,
@@ -55,6 +69,7 @@ struct ProductPreviewImporter: Sendable {
             try ProductPreviewImportRecord.insert {
                 ProductPreviewImportRecord(
                     id: "nightly",
+                    manifestDigest: manifest.digest,
                     importedAt: importedAt,
                     productCount: summary.importedProductCount,
                     skippedProductCount: summary.skippedProductCount
@@ -76,14 +91,41 @@ struct ProductPreviewImporter: Sendable {
         return summary
     }
 
-    private func fetchManifest() async throws -> [ProductPreviewManifestEntry] {
+    private func fetchManifest() async throws -> ProductPreviewManifest {
         let data: Data
         if manifestURL.isFileURL {
             data = try Data(contentsOf: manifestURL)
         } else {
             data = try await URLSession.shared.data(from: manifestURL).0
         }
-        return try JSONDecoder().decode([ProductPreviewManifestEntry].self, from: data)
+        return try ProductPreviewManifest(
+            digest: Self.digest(data),
+            entries: JSONDecoder().decode([ProductPreviewManifestEntry].self, from: data)
+        )
+    }
+
+    private func cachedSummary(matching manifestDigest: String) async throws -> ProductPreviewImportSummary? {
+        try await database.read { db in
+            guard
+                let importRecord = try ProductPreviewImportRecord.find("nightly").fetchOne(db),
+                importRecord.manifestDigest == manifestDigest
+            else { return nil }
+
+            let storedProductCount = try ProductPreview.fetchCount(db)
+            guard storedProductCount > 0 else { return nil }
+
+            return ProductPreviewImportSummary(
+                importedProductCount: storedProductCount,
+                skippedProductCount: importRecord.skippedProductCount,
+                importedFileCount: 0
+            )
+        }
+    }
+
+    private static func digest(_ data: Data) -> String {
+        SHA256.hash(data: data)
+            .map { String(format: "%02x", $0) }
+            .joined()
     }
 
     private func importFile(
@@ -256,6 +298,11 @@ struct ProductPreviewImporter: Sendable {
             }
         }
     }
+}
+
+private struct ProductPreviewManifest: Sendable {
+    let digest: String
+    let entries: [ProductPreviewManifestEntry]
 }
 
 private struct ProductPreviewManifestEntry: Decodable, Sendable {

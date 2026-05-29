@@ -62,6 +62,7 @@ struct ProductPreview: Identifiable, Codable, Hashable, Sendable {
 @Table("productPreviewImports")
 struct ProductPreviewImportRecord: Identifiable, Hashable, Sendable {
     let id: String
+    let manifestDigest: String?
     let importedAt: Date
     let productCount: Int
     let skippedProductCount: Int

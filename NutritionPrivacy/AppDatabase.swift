@@ -144,6 +144,15 @@ extension DependencyValues {
             )
             .execute(db)
         }
+        migrator.registerMigration("Add product preview import manifest digest") { db in
+            try #sql(
+                """
+                ALTER TABLE "productPreviewImports"
+                ADD COLUMN "manifestDigest" TEXT
+                """
+            )
+            .execute(db)
+        }
         try migrator.migrate(database)
         defaultDatabase = database
     }

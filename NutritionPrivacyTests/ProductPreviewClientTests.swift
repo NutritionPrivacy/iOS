@@ -62,8 +62,61 @@ extension BaseTestSuite {
 
                 let record = try #require(importRecord)
                 #expect(record.id == "nightly")
+                #expect(record.manifestDigest != nil)
                 #expect(record.productCount == 2)
                 #expect(record.skippedProductCount == 0)
+            }
+        }
+
+        @Test(.dependency(\.date.now, Date(timeIntervalSince1970: 1_800_000_000)))
+        func importProductPreviewsSkipsDumpWhenManifestIsUnchanged() async throws {
+            let directory = FileManager.default.temporaryDirectory
+                .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            defer { try? FileManager.default.removeItem(at: directory) }
+
+            let manifestURL = directory.appending(path: "overview.json")
+            let dumpURL = directory.appending(path: "products.json")
+
+            try Data(
+                """
+                [{"language":"english","files":[{"source":0,"name":"products.json","sha256":"same"}]}]
+                """.utf8
+            )
+            .write(to: manifestURL)
+
+            try Data(
+                """
+                {"source":0,"energy":42,"barcode":"123456789","measurement":1,"name":"Oats","brand":"Acme"}
+
+                """.utf8
+            )
+            .write(to: dumpURL)
+
+            let client = ProductPreviewClient.live(manifestURL: manifestURL, assetBaseURL: directory)
+            _ = try await client.importProductPreviews { _ in }
+
+            try Data(
+                """
+                {"source":0,"energy":50,"barcode":"123456789","measurement":1,"name":"Changed oats","brand":"Acme"}
+
+                """.utf8
+            )
+            .write(to: dumpURL)
+
+            let progressEvents = LockIsolated<[ProductPreviewImportProgress]>([])
+            let summary = try await client.importProductPreviews { progress in
+                progressEvents.withValue { $0.append(progress) }
+            }
+
+            #expect(summary.importedProductCount == 1)
+            #expect(summary.importedFileCount == 0)
+            #expect(progressEvents.value.map(\.phase) == [.fetchingManifest, .finished])
+
+            try await database.read { db in
+                let preview = try #require(try ProductPreview.fetchOne(db))
+                #expect(preview.name == "Oats")
+                #expect(preview.energy == 42)
             }
         }
     }
