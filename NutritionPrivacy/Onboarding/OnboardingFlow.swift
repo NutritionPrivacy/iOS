@@ -6,9 +6,9 @@ import UIKit
 @MainActor
 @Observable
 final class OnboardingViewModel {
-    @ObservationIgnored @Dependency(\.onboardingClient) private var onboardingClient
-    @ObservationIgnored @Dependency(\.nutritionPlanCalculator) private var nutritionPlanCalculator
-    @ObservationIgnored @Dependency(\.date.now) private var now
+    @ObservationIgnored private let onboardingClient: OnboardingClient
+    @ObservationIgnored private let nutritionPlanCalculator: NutritionPlanCalculator
+    @ObservationIgnored private let now: Date
 
     var currentStep: OnboardingStep = .welcome
     var draft = OnboardingDraft()
@@ -17,6 +17,20 @@ final class OnboardingViewModel {
     var isSaving = false
     var hasSavedOnboarding = false
     @ObservationIgnored weak var router: OnboardingRouting?
+
+    init(
+        onboardingClient: OnboardingClient? = nil,
+        nutritionPlanCalculator: NutritionPlanCalculator? = nil,
+        now: Date? = nil
+    ) {
+        @Dependency(\.onboardingClient) var defaultOnboardingClient
+        @Dependency(\.nutritionPlanCalculator) var defaultNutritionPlanCalculator
+        @Dependency(\.date.now) var defaultNow
+
+        self.onboardingClient = onboardingClient ?? defaultOnboardingClient
+        self.nutritionPlanCalculator = nutritionPlanCalculator ?? defaultNutritionPlanCalculator
+        self.now = now ?? defaultNow
+    }
 
     var canContinue: Bool {
         draft.canContinue(from: currentStep)

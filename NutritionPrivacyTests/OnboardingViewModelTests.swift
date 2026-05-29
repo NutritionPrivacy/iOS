@@ -1,13 +1,16 @@
 import Dependencies
+import DependenciesTestSupport
 import Foundation
+import SQLiteData
 import Testing
 @testable import NutritionPrivacy
 
+@Suite(.dependencies { try $0.bootstrapDatabase() })
 struct OnboardingViewModelTests {
 
     @MainActor
     @Test func startsAtWelcomeAndAdvancesToName() throws {
-        let viewModel = OnboardingViewModel()
+        let viewModel = makeNavigationViewModel()
 
         #expect(viewModel.currentStep == .welcome)
         #expect(viewModel.goNext())
@@ -19,16 +22,16 @@ struct OnboardingViewModelTests {
         let expectedDraft = makeDraft(name: "Taylor")
         let receivedDraft = DraftBox()
 
-        let viewModel = withDependencies {
-            $0.onboardingClient = OnboardingClient(
+        let viewModel = OnboardingViewModel(
+            onboardingClient: OnboardingClient(
                 hasCompletedOnboarding: { false },
                 completeOnboarding: { draft in
                     receivedDraft.value = draft
                 }
-            )
-        } operation: {
-            OnboardingViewModel()
-        }
+            ),
+            nutritionPlanCalculator: makeNutritionPlanCalculator(),
+            now: fixedDate
+        )
 
         viewModel.draft = expectedDraft
         viewModel.errorMessage = "Old error"
@@ -44,16 +47,16 @@ struct OnboardingViewModelTests {
     @Test func finishOnboardingPropagatesFailureAndStillResetsSavingState() throws {
         let expectedError = TestError.persistenceFailed
 
-        let viewModel = withDependencies {
-            $0.onboardingClient = OnboardingClient(
+        let viewModel = OnboardingViewModel(
+            onboardingClient: OnboardingClient(
                 hasCompletedOnboarding: { false },
                 completeOnboarding: { _ in
                     throw expectedError
                 }
-            )
-        } operation: {
-            OnboardingViewModel()
-        }
+            ),
+            nutritionPlanCalculator: makeNutritionPlanCalculator(),
+            now: fixedDate
+        )
 
         viewModel.errorMessage = "Old error"
 
@@ -127,24 +130,32 @@ private func makeDraft(name: String) -> OnboardingDraft {
 
 @MainActor
 private func makeNavigationViewModel() -> OnboardingViewModel {
-    withDependencies {
-        $0.date.now = Date(timeIntervalSince1970: 1_742_000_000)
-        $0.nutritionPlanCalculator = NutritionPlanCalculator(
-            calculate: { _, generatedAt in
-                NutritionPlan(
-                    id: UUID(),
-                    dailyCalorieTarget: 2_000,
-                    proteinGrams: 140,
-                    carbGrams: 210,
-                    fatGrams: 67,
-                    estimatedWeeklyChange: 0,
-                    generatedAt: generatedAt
-                )
-            }
-        )
-    } operation: {
-        OnboardingViewModel()
-    }
+    OnboardingViewModel(
+        onboardingClient: OnboardingClient(
+            hasCompletedOnboarding: { false },
+            completeOnboarding: { _ in }
+        ),
+        nutritionPlanCalculator: makeNutritionPlanCalculator(),
+        now: fixedDate
+    )
+}
+
+private let fixedDate = Date(timeIntervalSince1970: 1_742_000_000)
+
+private func makeNutritionPlanCalculator() -> NutritionPlanCalculator {
+    NutritionPlanCalculator(
+        calculate: { _, generatedAt in
+            NutritionPlan(
+                id: UUID(),
+                dailyCalorieTarget: 2_000,
+                proteinGrams: 140,
+                carbGrams: 210,
+                fatGrams: 67,
+                estimatedWeeklyChange: 0,
+                generatedAt: generatedAt
+            )
+        }
+    )
 }
 
 private final class DraftBox: @unchecked Sendable {
