@@ -42,8 +42,11 @@ struct ProductPreviewImporter: Sendable {
             importedFileCount += 1
         }
 
+        let storedProductCount = try await database.read { db in
+            try ProductPreview.fetchCount(db)
+        }
         let summary = ProductPreviewImportSummary(
-            importedProductCount: importedProductCount,
+            importedProductCount: storedProductCount,
             skippedProductCount: skippedProductCount,
             importedFileCount: importedFileCount
         )
@@ -65,7 +68,7 @@ struct ProductPreviewImporter: Sendable {
                 phase: .finished,
                 completedBytes: 0,
                 totalBytes: nil,
-                importedProductCount: importedProductCount,
+                importedProductCount: storedProductCount,
                 skippedProductCount: skippedProductCount
             )
         )
@@ -237,7 +240,19 @@ struct ProductPreviewImporter: Sendable {
 
         try await database.write { db in
             for preview in previews {
-                try ProductPreview.insert { preview }.execute(db)
+                try ProductPreview.insert {
+                    preview
+                } onConflictDoUpdate: { updates, excluded in
+                    updates.barcode = excluded.barcode
+                    updates.language = excluded.language
+                    updates.name = excluded.name
+                    updates.brand = excluded.brand
+                    updates.energy = excluded.energy
+                    updates.measurement = excluded.measurement
+                    updates.source = excluded.source
+                    updates.importedAt = excluded.importedAt
+                }
+                .execute(db)
             }
         }
     }
