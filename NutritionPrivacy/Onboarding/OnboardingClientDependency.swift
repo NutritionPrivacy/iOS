@@ -19,31 +19,14 @@ extension OnboardingClient: DependencyKey {
 }
 
 struct LiveOnboardingClient {
-    private let database: any DatabaseWriter
-    private let now: Date
-    private let nutritionPlanCalculator: NutritionPlanCalculator
-
-    init() {
-        @Dependency(\.defaultDatabase) var database
-        @Dependency(\.date.now) var now
-        @Dependency(\.nutritionPlanCalculator) var nutritionPlanCalculator
-
-        self.init(
-            database: database,
-            now: now,
-            nutritionPlanCalculator: nutritionPlanCalculator
-        )
-    }
-
-    init(
-        database: any DatabaseWriter,
-        now: Date,
-        nutritionPlanCalculator: NutritionPlanCalculator
-    ) {
-        self.database = database
-        self.now = now
-        self.nutritionPlanCalculator = nutritionPlanCalculator
-    }
+    @Dependency(\.defaultDatabase)
+    private var database
+    
+    @Dependency(\.date.now)
+    private var now
+    
+    @Dependency(\.nutritionPlanCalculator)
+    private var nutritionPlanCalculator
     
     func hasCompletedOnboarding() throws -> Bool {
         try database.read { db in

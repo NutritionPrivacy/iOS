@@ -7,20 +7,24 @@ import DependenciesTestSupport
 
 @Suite(.dependencies { try $0.bootstrapDatabase() })
 struct NutritionPrivacyTests {
+    @Dependency(\.defaultDatabase)
+    private var database
+
+    @Dependency(\.nutritionPlanCalculator)
+    private var nutritionPlanCalculator
+    
     private static let fixedDate = Date(timeIntervalSince1970: 1_742_000_000)
     
-    @Test func completeOnboardingPersistsExpectedRecords() throws {
+    @Test(
+        .dependency(\.date.now, fixedDate),
+        .dependency(\.nutritionPlanCalculator, .liveValue)
+    ) func completeOnboardingPersistsExpectedRecords() throws {
         let fixedDate = Date(timeIntervalSince1970: 1_742_000_000)
         let draft = makeDraft(name: "Taylor")
-        let database = try makeTestDatabase()
 
-        let client = LiveOnboardingClient(
-            database: database,
-            now: fixedDate,
-            nutritionPlanCalculator: .liveValue
-        )
+        let client = LiveOnboardingClient()
         try client.completeOnboarding(with: draft)
-        let expectedPlan = try NutritionPlanCalculator.liveValue.calculate(draft, fixedDate)
+        let expectedPlan = try nutritionPlanCalculator.calculate(draft, fixedDate)
 
         try database.read { db in
             let fetchedProfile = try Profile.fetchOne(db)
@@ -69,13 +73,6 @@ struct NutritionPrivacyTests {
             #expect(weightEntry.recordedAt == fixedDate)
         }
     }
-}
-
-private func makeTestDatabase() throws -> any DatabaseWriter {
-    let url = FileManager.default.temporaryDirectory
-        .appendingPathComponent(UUID().uuidString)
-        .appendingPathExtension("sqlite")
-    return try DependencyValues.bootstrappedDatabase(path: url.path)
 }
 
 private func makeDraft(name: String) -> OnboardingDraft {

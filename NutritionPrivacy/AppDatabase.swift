@@ -13,11 +13,7 @@ extension DependencyValues {
             )
             .appendingPathComponent("NutritionPrivacy.sqlite")
 
-        defaultDatabase = try Self.bootstrappedDatabase(path: databaseURL.path)
-    }
-
-    static func bootstrappedDatabase(path: String) throws -> any DatabaseWriter {
-        let database = try SQLiteData.defaultDatabase(path: path)
+        let database = try SQLiteData.defaultDatabase(path: databaseURL.path)
         var migrator = DatabaseMigrator()
 #if DEBUG
         migrator.eraseDatabaseOnSchemaChange = true
@@ -103,6 +99,6 @@ extension DependencyValues {
             .execute(db)
         }
         try migrator.migrate(database)
-        return database
+        defaultDatabase = database
     }
 }
