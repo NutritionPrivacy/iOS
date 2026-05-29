@@ -17,6 +17,10 @@ enum ProductMeasurement: Int, Codable, Hashable, Sendable, QueryBindable {
     case unknown
 }
 
+/// Search-ready product metadata imported from the preview dumps.
+///
+/// Preview rows intentionally contain only the fields needed for lightweight
+/// product lookup.
 @Table("productPreviews")
 struct ProductPreview: Identifiable, Codable, Hashable, Sendable {
     let id: String
@@ -27,6 +31,7 @@ struct ProductPreview: Identifiable, Codable, Hashable, Sendable {
     let energy: Int
     let measurement: ProductMeasurement
     let source: ProductPreviewSource
+    /// Manifest dump file that produced this row. Used to replace only changed files.
     let fileName: String
     let importedAt: Date
 
@@ -62,15 +67,21 @@ struct ProductPreview: Identifiable, Codable, Hashable, Sendable {
     }
 }
 
+/// Aggregate metadata for the most recent product preview refresh.
 @Table("productPreviewImports")
 struct ProductPreviewImportRecord: Identifiable, Hashable, Sendable {
     let id: String
+    /// Digest of the current manifest file identities and checksums.
     let manifestDigest: String?
     let importedAt: Date
     let productCount: Int
     let skippedProductCount: Int
 }
 
+/// Per-dump cache metadata from `overview.json`.
+///
+/// The importer compares these stored checksums to the manifest before deciding
+/// whether a dump file needs to be downloaded.
 @Table("productPreviewFileImports")
 struct ProductPreviewFileImportRecord: Identifiable, Hashable, Sendable {
     let id: String

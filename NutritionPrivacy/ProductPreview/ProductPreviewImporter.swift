@@ -2,6 +2,14 @@ import CryptoKit
 import Foundation
 import SQLiteData
 
+/// Imports product preview release assets into the local SQLite cache.
+///
+/// The importer always starts with the lightweight `overview.json` manifest.
+/// It compares the manifest SHA-256 values with `productPreviewFileImports`,
+/// downloads only changed dump files, verifies each downloaded file, and then
+/// replaces only the preview rows produced by that file. This keeps app startup
+/// cheap after the first import and avoids wiping valid cached data when one
+/// dump update is corrupt or temporarily unavailable.
 struct ProductPreviewImporter: Sendable {
     let database: any DatabaseWriter
     let importedAt: Date
@@ -24,11 +32,14 @@ struct ProductPreviewImporter: Sendable {
         let manifest = try await fetchManifest()
         let files = manifest.entries.flatMap(\.files)
         let cachedFileImports = try await cachedFileImportRecords()
+
+        // Remove rows for dump files no longer advertised by the nightly manifest.
         try await removeStaleFileImports(
             cachedFileImports.values,
             currentFileIDs: Set(files.map(\.id))
         )
 
+        // Only files with new or changed SHA-256 values need to be downloaded.
         let filesToImport = files.filter { file in
             cachedFileImports[file.id]?.sha256 != file.normalizedSHA256
         }
@@ -65,6 +76,7 @@ struct ProductPreviewImporter: Sendable {
                 importedFileCount += 1
                 try await saveFileImportRecord(file, summary: fileSummary)
             } catch ProductPreviewImportError.checksumMismatch {
+                // Keep the previous cache for this file.
                 continue
             }
         }
@@ -192,6 +204,7 @@ struct ProductPreviewImporter: Sendable {
             throw ProductPreviewImportError.checksumMismatch(fileName: file.name)
         }
 
+        // Verify before deleting so a corrupt download never removes good cached rows.
         try await removeCachedPreviews(for: file)
         return try await importFileData(
             data,
@@ -332,6 +345,7 @@ struct ProductPreviewImporter: Sendable {
     }
 }
 
+/// Decoded `overview.json` plus a stable digest for aggregate import metadata.
 private struct ProductPreviewManifest: Sendable {
     let digest: String
     let entries: [ProductPreviewManifestEntry]
@@ -341,6 +355,9 @@ private struct ProductPreviewManifest: Sendable {
         self.digest = Self.digest(entries)
     }
 
+    /// Stable fingerprint derived from manifest file identities and SHA-256 values.
+    ///
+    /// This intentionally ignores raw JSON formatting and ordering changes.
     private static func digest(_ entries: [ProductPreviewManifestEntry]) -> String {
         let fingerprint = entries
             .flatMap { entry in
@@ -354,6 +371,11 @@ private struct ProductPreviewManifest: Sendable {
     }
 }
 
+/// One language section from `overview.json`.
+///
+/// The manifest stores language on the section, while individual file entries
+/// store source/name/checksum. Decoding copies the section language onto every
+/// file so import code can treat files independently.
 private struct ProductPreviewManifestEntry: Decodable, Sendable {
     let language: ProductPreviewLanguage
     let files: [ProductPreviewManifestFile]
@@ -377,6 +399,7 @@ private struct ProductPreviewManifestEntry: Decodable, Sendable {
     }
 }
 
+/// One dump file advertised by `overview.json`.
 private struct ProductPreviewManifestFile: Decodable, Sendable {
     let name: String
     let sha256: String
@@ -396,6 +419,7 @@ private struct ProductPreviewManifestFile: Decodable, Sendable {
     }
 }
 
+/// One newline-delimited product row from a preview dump file.
 private struct ProductPreviewDumpRecord: Decodable, Sendable {
     let name: String
     let brand: String?
@@ -405,6 +429,11 @@ private struct ProductPreviewDumpRecord: Decodable, Sendable {
     let source: ProductPreviewSource
 }
 
+/// Recoverable per-file failures.
+///
+/// A checksum mismatch means the advertised file changed, but the downloaded
+/// bytes do not match the manifest. The importer keeps the previous cache for
+/// that file.
 private enum ProductPreviewImportError: Error, Equatable {
     case checksumMismatch(fileName: String)
 }
