@@ -98,6 +98,52 @@ extension DependencyValues {
             )
             .execute(db)
         }
+        migrator.registerMigration("Create product preview cache tables") { db in
+            try #sql(
+                """
+                CREATE TABLE "productPreviews" (
+                  "id" TEXT PRIMARY KEY NOT NULL,
+                  "barcode" TEXT NOT NULL,
+                  "language" TEXT NOT NULL,
+                  "name" TEXT NOT NULL,
+                  "brand" TEXT,
+                  "energy" INTEGER NOT NULL,
+                  "measurement" INTEGER NOT NULL,
+                  "source" INTEGER NOT NULL,
+                  "importedAt" TEXT NOT NULL
+                ) STRICT
+                """
+            )
+            .execute(db)
+
+            try #sql(
+                """
+                CREATE TABLE "productPreviewImports" (
+                  "id" TEXT PRIMARY KEY NOT NULL,
+                  "importedAt" TEXT NOT NULL,
+                  "productCount" INTEGER NOT NULL,
+                  "skippedProductCount" INTEGER NOT NULL
+                ) STRICT
+                """
+            )
+            .execute(db)
+
+            try #sql(
+                """
+                CREATE INDEX IF NOT EXISTS "idx_productPreviews_language_name"
+                ON "productPreviews"("language", "name")
+                """
+            )
+            .execute(db)
+
+            try #sql(
+                """
+                CREATE INDEX IF NOT EXISTS "idx_productPreviews_barcode"
+                ON "productPreviews"("barcode")
+                """
+            )
+            .execute(db)
+        }
         try migrator.migrate(database)
         defaultDatabase = database
     }
