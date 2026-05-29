@@ -141,7 +141,7 @@ struct OnboardingDraft: Hashable, Sendable {
         case .name:
             return !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         case .sexForCalculation:
-            return true
+            return hasSelectedSexForCalculation
         case .dateOfBirth:
             return true
         case .height:

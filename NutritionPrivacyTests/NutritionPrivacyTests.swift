@@ -2,30 +2,42 @@ import Dependencies
 import Foundation
 import SQLiteData
 import Testing
+import DependenciesTestSupport
 @testable import NutritionPrivacy
 
+@Suite(.dependencies { try $0.bootstrapDatabase() })
 struct NutritionPrivacyTests {
+    @Dependency(\.defaultDatabase)
+    private var database
 
-    @Test func completeOnboardingPersistsExpectedRecords() throws {
+    @Dependency(\.nutritionPlanCalculator)
+    private var nutritionPlanCalculator
+    
+    private static let fixedDate = Date(timeIntervalSince1970: 1_742_000_000)
+    
+    @Test(
+        .dependency(\.date.now, fixedDate),
+        .dependency(\.nutritionPlanCalculator, .liveValue)
+    ) func completeOnboardingPersistsExpectedRecords() throws {
         let fixedDate = Date(timeIntervalSince1970: 1_742_000_000)
         let draft = makeDraft(name: "Taylor")
-        let database = try makeTestDatabase()
 
-        try withDependencies {
-            $0.defaultDatabase = database
-            $0.date.now = fixedDate
-        } operation: {
-            try OnboardingClient.liveValue.completeOnboarding(draft)
-        }
-
-        let expectedPlan = try NutritionPlanCalculator.liveValue.calculate(draft, fixedDate)
+        let client = LiveOnboardingClient()
+        try client.completeOnboarding(with: draft)
+        let expectedPlan = try nutritionPlanCalculator.calculate(draft, fixedDate)
 
         try database.read { db in
-            let profile = try #require(Profile.fetchOne(db))
-            let goalSettings = try #require(GoalSettings.fetchOne(db))
-            let nutritionPlan = try #require(NutritionPlan.fetchOne(db))
-            let appPreferences = try #require(AppPreferences.fetchOne(db))
-            let weightEntry = try #require(WeightEntry.fetchOne(db))
+            let fetchedProfile = try Profile.fetchOne(db)
+            let fetchedGoalSettings = try GoalSettings.fetchOne(db)
+            let fetchedNutritionPlan = try NutritionPlan.fetchOne(db)
+            let fetchedAppPreferences = try AppPreferences.fetchOne(db)
+            let fetchedWeightEntry = try WeightEntry.fetchOne(db)
+
+            let profile = try #require(fetchedProfile)
+            let goalSettings = try #require(fetchedGoalSettings)
+            let nutritionPlan = try #require(fetchedNutritionPlan)
+            let appPreferences = try #require(fetchedAppPreferences)
+            let weightEntry = try #require(fetchedWeightEntry)
 
             #expect(profile.name == draft.name)
             #expect(profile.sexForCalculation == draft.sexForCalculation)
@@ -61,97 +73,6 @@ struct NutritionPrivacyTests {
             #expect(weightEntry.recordedAt == fixedDate)
         }
     }
-}
-
-private func makeTestDatabase() throws -> any DatabaseWriter {
-    let database = try defaultDatabase()
-
-    try database.write { db in
-        var migrator = DatabaseMigrator()
-        migrator.registerMigration("Create onboarding persistence tables") { db in
-            try #sql(
-                """
-                CREATE TABLE "profiles" (
-                  "id" TEXT PRIMARY KEY NOT NULL,
-                  "name" TEXT NOT NULL,
-                  "sexForCalculation" TEXT,
-                  "dateOfBirth" TEXT NOT NULL,
-                  "heightValue" REAL NOT NULL,
-                  "heightUnit" TEXT NOT NULL
-                ) STRICT
-                """
-            )
-            .execute(db)
-
-            try #sql(
-                """
-                CREATE TABLE "goalSettings" (
-                  "id" TEXT PRIMARY KEY NOT NULL REFERENCES "profiles"("id") ON DELETE CASCADE,
-                  "goal" TEXT NOT NULL,
-                  "goalPace" TEXT NOT NULL,
-                  "targetWeightValue" REAL NOT NULL,
-                  "targetWeightUnit" TEXT NOT NULL,
-                  "activityLevel" TEXT NOT NULL,
-                  "exerciseFrequency" TEXT NOT NULL,
-                  "proteinPreference" TEXT NOT NULL,
-                  "validSince" TEXT NOT NULL
-                ) STRICT
-                """
-            )
-            .execute(db)
-
-            try #sql(
-                """
-                CREATE TABLE "nutritionPlans" (
-                  "id" TEXT PRIMARY KEY NOT NULL REFERENCES "profiles"("id") ON DELETE CASCADE,
-                  "dailyCalorieTarget" INTEGER NOT NULL,
-                  "proteinGrams" INTEGER NOT NULL,
-                  "carbGrams" INTEGER NOT NULL,
-                  "fatGrams" INTEGER NOT NULL,
-                  "estimatedWeeklyChange" REAL NOT NULL,
-                  "generatedAt" TEXT NOT NULL
-                ) STRICT
-                """
-            )
-            .execute(db)
-
-            try #sql(
-                """
-                CREATE TABLE "appPreferences" (
-                  "id" TEXT PRIMARY KEY NOT NULL REFERENCES "profiles"("id") ON DELETE CASCADE,
-                  "weeklyCheckInDay" TEXT NOT NULL,
-                  "completedAt" TEXT NOT NULL
-                ) STRICT
-                """
-            )
-            .execute(db)
-
-            try #sql(
-                """
-                CREATE TABLE "weightEntries" (
-                  "id" TEXT PRIMARY KEY NOT NULL,
-                  "profileID" TEXT NOT NULL REFERENCES "profiles"("id") ON DELETE CASCADE,
-                  "weightValue" REAL NOT NULL,
-                  "weightUnit" TEXT NOT NULL,
-                  "recordedAt" TEXT NOT NULL
-                ) STRICT
-                """
-            )
-            .execute(db)
-        }
-        migrator.registerMigration("Create onboarding persistence indexes") { db in
-            try #sql(
-                """
-                CREATE INDEX IF NOT EXISTS "idx_weightEntries_profileID_recordedAt"
-                ON "weightEntries"("profileID", "recordedAt" DESC)
-                """
-            )
-            .execute(db)
-        }
-        try migrator.migrate(db)
-    }
-
-    return database
 }
 
 private func makeDraft(name: String) -> OnboardingDraft {

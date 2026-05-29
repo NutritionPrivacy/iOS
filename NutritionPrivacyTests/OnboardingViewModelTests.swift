@@ -81,6 +81,23 @@ struct OnboardingViewModelTests {
     }
 
     @MainActor
+    @Test func sexQuestionRequiresASelectionBeforeAdvancing() throws {
+        let viewModel = makeNavigationViewModel()
+        viewModel.currentStep = .sexForCalculation
+
+        #expect(!viewModel.canContinue)
+        #expect(!viewModel.goNext())
+        #expect(viewModel.currentStep == .sexForCalculation)
+
+        viewModel.draft.hasSelectedSexForCalculation = true
+        viewModel.draft.sexForCalculation = nil
+
+        #expect(viewModel.canContinue)
+        #expect(viewModel.goNext())
+        #expect(viewModel.currentStep == .height)
+    }
+
+    @MainActor
     @Test func nonMaintenanceGoalStillShowsTargetWeightQuestion() throws {
         let viewModel = makeNavigationViewModel()
         viewModel.currentStep = .goal
@@ -111,6 +128,7 @@ private func makeDraft(name: String) -> OnboardingDraft {
 @MainActor
 private func makeNavigationViewModel() -> OnboardingViewModel {
     withDependencies {
+        $0.date.now = Date(timeIntervalSince1970: 1_742_000_000)
         $0.nutritionPlanCalculator = NutritionPlanCalculator(
             calculate: { _, generatedAt in
                 NutritionPlan(
