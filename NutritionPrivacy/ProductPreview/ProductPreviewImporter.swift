@@ -54,15 +54,19 @@ struct ProductPreviewImporter: Sendable {
         var importedFileCount = 0
 
         for file in filesToImport {
-            let fileSummary = try await importFile(
-                file,
-                reportProgress: reportProgress,
-                existingImportedCount: 0,
-                existingSkippedCount: skippedProductCount
-            )
-            skippedProductCount += fileSummary.skippedProductCount
-            importedFileCount += 1
-            try await saveFileImportRecord(file, summary: fileSummary)
+            do {
+                let fileSummary = try await importFile(
+                    file,
+                    reportProgress: reportProgress,
+                    existingImportedCount: 0,
+                    existingSkippedCount: skippedProductCount
+                )
+                skippedProductCount += fileSummary.skippedProductCount
+                importedFileCount += 1
+                try await saveFileImportRecord(file, summary: fileSummary)
+            } catch ProductPreviewImportError.checksumMismatch {
+                continue
+            }
         }
 
         let storedProductCount = try await database.read { db in
