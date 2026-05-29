@@ -98,10 +98,8 @@ struct ProductPreviewImporter: Sendable {
         } else {
             data = try await URLSession.shared.data(from: manifestURL).0
         }
-        return try ProductPreviewManifest(
-            digest: Self.digest(data),
-            entries: JSONDecoder().decode([ProductPreviewManifestEntry].self, from: data)
-        )
+        let entries = try JSONDecoder().decode([ProductPreviewManifestEntry].self, from: data)
+        return ProductPreviewManifest(entries: entries)
     }
 
     private func cachedSummary(matching manifestDigest: String) async throws -> ProductPreviewImportSummary? {
@@ -122,7 +120,7 @@ struct ProductPreviewImporter: Sendable {
         }
     }
 
-    private static func digest(_ data: Data) -> String {
+    fileprivate static func digest(_ data: Data) -> String {
         SHA256.hash(data: data)
             .map { String(format: "%02x", $0) }
             .joined()
@@ -135,85 +133,27 @@ struct ProductPreviewImporter: Sendable {
         existingSkippedCount: Int
     ) async throws -> ProductPreviewImportSummary {
         let fileURL = assetBaseURL.appending(path: file.name)
+        let data: Data
         if fileURL.isFileURL {
-            let data = try Data(contentsOf: fileURL)
-            return try await importLocalFileData(
-                data,
-                file: file,
-                reportProgress: reportProgress,
-                existingImportedCount: existingImportedCount,
-                existingSkippedCount: existingSkippedCount
-            )
+            data = try Data(contentsOf: fileURL)
+        } else {
+            data = try await URLSession.shared.data(from: fileURL).0
         }
 
-        let (bytes, response) = try await URLSession.shared.bytes(from: fileURL)
-        let totalBytes = (response as? HTTPURLResponse)?.expectedContentLength
-        var completedBytes: Int64 = 0
-        var batch: [ProductPreview] = []
-        var importedProductCount = 0
-        var skippedProductCount = 0
-        var nextProgressByteCount: Int64 = 512 * 1024
-
-        reportProgress(
-            ProductPreviewImportProgress(
-                phase: .importingFile(file.name),
-                completedBytes: 0,
-                totalBytes: totalBytes,
-                importedProductCount: existingImportedCount,
-                skippedProductCount: existingSkippedCount
-            )
-        )
-
-        for try await line in bytes.lines {
-            completedBytes += Int64(line.utf8.count + 1)
-            guard !line.isEmpty else { continue }
-
-            do {
-                let preview = try decodePreview(line, file: file)
-                batch.append(preview)
-                importedProductCount += 1
-            } catch {
-                skippedProductCount += 1
-            }
-
-            if batch.count >= 500 {
-                try await insert(batch)
-                batch.removeAll(keepingCapacity: true)
-            }
-
-            if completedBytes >= nextProgressByteCount {
-                reportProgress(
-                    ProductPreviewImportProgress(
-                        phase: .importingFile(file.name),
-                        completedBytes: completedBytes,
-                        totalBytes: totalBytes,
-                        importedProductCount: existingImportedCount + importedProductCount,
-                        skippedProductCount: existingSkippedCount + skippedProductCount
-                    )
-                )
-                nextProgressByteCount = completedBytes + 512 * 1024
-            }
+        guard Self.digest(data) == file.sha256.lowercased() else {
+            throw ProductPreviewImportError.checksumMismatch(fileName: file.name)
         }
 
-        try await insert(batch)
-        reportProgress(
-            ProductPreviewImportProgress(
-                phase: .importingFile(file.name),
-                completedBytes: completedBytes,
-                totalBytes: totalBytes,
-                importedProductCount: existingImportedCount + importedProductCount,
-                skippedProductCount: existingSkippedCount + skippedProductCount
-            )
-        )
-
-        return ProductPreviewImportSummary(
-            importedProductCount: importedProductCount,
-            skippedProductCount: skippedProductCount,
-            importedFileCount: 1
+        return try await importFileData(
+            data,
+            file: file,
+            reportProgress: reportProgress,
+            existingImportedCount: existingImportedCount,
+            existingSkippedCount: existingSkippedCount
         )
     }
 
-    private func importLocalFileData(
+    private func importFileData(
         _ data: Data,
         file: ProductPreviewManifestFile,
         reportProgress: @Sendable (ProductPreviewImportProgress) -> Void,
@@ -303,6 +243,23 @@ struct ProductPreviewImporter: Sendable {
 private struct ProductPreviewManifest: Sendable {
     let digest: String
     let entries: [ProductPreviewManifestEntry]
+
+    init(entries: [ProductPreviewManifestEntry]) {
+        self.entries = entries
+        self.digest = Self.digest(entries)
+    }
+
+    private static func digest(_ entries: [ProductPreviewManifestEntry]) -> String {
+        let fingerprint = entries
+            .flatMap { entry in
+                entry.files.map { file in
+                    "\(entry.language.rawValue):\(file.source.rawValue):\(file.name):\(file.sha256.lowercased())"
+                }
+            }
+            .sorted()
+            .joined(separator: "\n")
+        return ProductPreviewImporter.digest(Data(fingerprint.utf8))
+    }
 }
 
 private struct ProductPreviewManifestEntry: Decodable, Sendable {
@@ -348,4 +305,8 @@ private struct ProductPreviewDumpRecord: Decodable, Sendable {
     let energy: Int
     let measurement: ProductMeasurement
     let source: ProductPreviewSource
+}
+
+private enum ProductPreviewImportError: Error, Equatable {
+    case checksumMismatch(fileName: String)
 }

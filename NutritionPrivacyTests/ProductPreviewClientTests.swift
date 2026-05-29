@@ -1,3 +1,4 @@
+import CryptoKit
 import Dependencies
 import DependenciesTestSupport
 import Foundation
@@ -20,14 +21,7 @@ extension BaseTestSuite {
             let manifestURL = directory.appending(path: "overview.json")
             let dumpURL = directory.appending(path: "products.json")
 
-            try Data(
-                """
-                [{"language":"english","files":[{"source":0,"name":"products.json","sha256":"unused"}]}]
-                """.utf8
-            )
-            .write(to: manifestURL)
-
-            try Data(
+            let dumpData = Data(
                 """
                 {"source":0,"energy":42,"barcode":"123456789","measurement":1,"name":"Oats","brand":"Acme"}
                 {"source":0,"energy":15,"barcode":"987654321","measurement":0,"name":"Almond drink"}
@@ -35,7 +29,13 @@ extension BaseTestSuite {
 
                 """.utf8
             )
-            .write(to: dumpURL)
+            try Data(
+                """
+                [{"language":"english","files":[{"source":0,"name":"products.json","sha256":"\(sha256(dumpData))"}]}]
+                """.utf8
+            )
+            .write(to: manifestURL)
+            try dumpData.write(to: dumpURL)
 
             let client = ProductPreviewClient.live(manifestURL: manifestURL, assetBaseURL: directory)
             let progressEvents = LockIsolated<[ProductPreviewImportProgress]>([])
@@ -78,20 +78,19 @@ extension BaseTestSuite {
             let manifestURL = directory.appending(path: "overview.json")
             let dumpURL = directory.appending(path: "products.json")
 
-            try Data(
-                """
-                [{"language":"english","files":[{"source":0,"name":"products.json","sha256":"same"}]}]
-                """.utf8
-            )
-            .write(to: manifestURL)
-
-            try Data(
+            let firstDumpData = Data(
                 """
                 {"source":0,"energy":42,"barcode":"123456789","measurement":1,"name":"Oats","brand":"Acme"}
 
                 """.utf8
             )
-            .write(to: dumpURL)
+            try Data(
+                """
+                [{"language":"english","files":[{"source":0,"name":"products.json","sha256":"\(sha256(firstDumpData))"}]}]
+                """.utf8
+            )
+            .write(to: manifestURL)
+            try firstDumpData.write(to: dumpURL)
 
             let client = ProductPreviewClient.live(manifestURL: manifestURL, assetBaseURL: directory)
             _ = try await client.importProductPreviews { _ in }
@@ -118,6 +117,12 @@ extension BaseTestSuite {
                 #expect(preview.name == "Oats")
                 #expect(preview.energy == 42)
             }
+        }
+
+        private func sha256(_ data: Data) -> String {
+            SHA256.hash(data: data)
+                .map { String(format: "%02x", $0) }
+                .joined()
         }
     }
 }
