@@ -21,13 +21,16 @@ extension BaseTestSuite {
             .dependency(\.date.now, fixedDate),
             .dependency(\.nutritionPlanCalculator, .liveValue)
         ) func completeOnboardingPersistsExpectedRecords() throws {
+            // GIVEN a complete onboarding draft and a live nutrition plan calculator.
             let fixedDate = Date(timeIntervalSince1970: 1_742_000_000)
             let draft = makeDraft(name: "Taylor")
 
+            // WHEN completing onboarding persists the draft.
             let client = OnboardingClient.liveValue
             try client.completeOnboarding(draft: draft)
             let expectedPlan = try nutritionPlanCalculator.calculate(draft, fixedDate)
 
+            // THEN the profile, goals, plan, preferences, and starting weight are stored.
             try database.read { db in
                 let fetchedProfile = try Profile.fetchOne(db)
                 let fetchedGoalSettings = try GoalSettings.fetchOne(db)

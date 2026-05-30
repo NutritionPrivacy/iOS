@@ -13,6 +13,7 @@ extension BaseTestSuite {
 
         @Test(.dependency(\.date.now, Date(timeIntervalSince1970: 1_800_000_000)))
         func importProductPreviewsStoresDumpAndReportsProgress() async throws {
+            // GIVEN a manifest and dump file with duplicate product rows.
             let directory = FileManager.default.temporaryDirectory
                 .appending(path: UUID().uuidString, directoryHint: .isDirectory)
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -40,16 +41,19 @@ extension BaseTestSuite {
             let client = ProductPreviewClient.live(manifestURL: manifestURL, assetBaseURL: directory)
             let progressEvents = LockIsolated<[ProductPreviewImportProgress]>([])
 
+            // WHEN importing product previews from the local release assets.
             let summary = try await client.importProductPreviews { progress in
                 progressEvents.withValue { $0.append(progress) }
             }
 
+            // THEN the import summary and progress events report the completed import.
             #expect(summary.importedProductCount == 2)
             #expect(summary.skippedProductCount == 0)
             #expect(summary.importedFileCount == 1)
             #expect(progressEvents.value.first?.phase == .fetchingManifest)
             #expect(progressEvents.value.last?.phase == .finished)
 
+            // THEN the latest rows and import metadata are persisted.
             try await database.read { db in
                 let previews = try ProductPreview.all.fetchAll(db)
                 let importRecord = try ProductPreviewImportRecord.fetchOne(db)
@@ -77,6 +81,7 @@ extension BaseTestSuite {
 
         @Test(.dependency(\.date.now, Date(timeIntervalSince1970: 1_800_000_000)))
         func importProductPreviewsSkipsDumpWhenManifestIsUnchanged() async throws {
+            // GIVEN an already-imported manifest and dump file.
             let directory = FileManager.default.temporaryDirectory
                 .appending(path: UUID().uuidString, directoryHint: .isDirectory)
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -102,6 +107,7 @@ extension BaseTestSuite {
             let client = ProductPreviewClient.live(manifestURL: manifestURL, assetBaseURL: directory)
             _ = try await client.importProductPreviews { _ in }
 
+            // GIVEN the dump file changes without a matching manifest checksum change.
             try Data(
                 """
                 {"source":0,"energy":50,"barcode":"123456789","measurement":1,"name":"Changed oats","brand":"Acme"}
@@ -111,14 +117,18 @@ extension BaseTestSuite {
             .write(to: dumpURL)
 
             let progressEvents = LockIsolated<[ProductPreviewImportProgress]>([])
+
+            // WHEN importing product previews again.
             let summary = try await client.importProductPreviews { progress in
                 progressEvents.withValue { $0.append(progress) }
             }
 
+            // THEN no dump file is re-imported.
             #expect(summary.importedProductCount == 1)
             #expect(summary.importedFileCount == 0)
             #expect(progressEvents.value.map(\.phase) == [.fetchingManifest, .finished])
 
+            // THEN the cached preview remains unchanged.
             try await database.read { db in
                 let preview = try #require(try ProductPreview.fetchOne(db))
                 #expect(preview.name == "Oats")
@@ -128,6 +138,7 @@ extension BaseTestSuite {
 
         @Test(.dependency(\.date.now, Date(timeIntervalSince1970: 1_800_000_000)))
         func importProductPreviewsDownloadsOnlyChangedFiles() async throws {
+            // GIVEN previously imported English and German dump files.
             let directory = FileManager.default.temporaryDirectory
                 .appending(path: UUID().uuidString, directoryHint: .isDirectory)
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -160,6 +171,7 @@ extension BaseTestSuite {
             let client = ProductPreviewClient.live(manifestURL: manifestURL, assetBaseURL: directory)
             _ = try await client.importProductPreviews { _ in }
 
+            // GIVEN only the English file changes in the manifest.
             let secondEnglishDumpData = Data(
                 """
                 {"source":0,"energy":50,"barcode":"123456789","measurement":1,"name":"Changed oats","brand":"Acme"}
@@ -174,11 +186,14 @@ extension BaseTestSuite {
                 germanSHA256: sha256(germanDumpData)
             )
 
+            // WHEN importing product previews again.
             let summary = try await client.importProductPreviews { _ in }
 
+            // THEN only the changed file is downloaded and imported.
             #expect(summary.importedProductCount == 2)
             #expect(summary.importedFileCount == 1)
 
+            // THEN unchanged cached rows are kept alongside refreshed rows.
             try await database.read { db in
                 let previews = try ProductPreview.all.fetchAll(db)
                 #expect(previews.map(\.name).sorted() == ["Changed oats", "Hafer"])
@@ -187,6 +202,7 @@ extension BaseTestSuite {
 
         @Test(.dependency(\.date.now, Date(timeIntervalSince1970: 1_800_000_000)))
         func importProductPreviewsKeepsCacheWhenChangedFileChecksumFails() async throws {
+            // GIVEN an already-imported dump file.
             let directory = FileManager.default.temporaryDirectory
                 .appending(path: UUID().uuidString, directoryHint: .isDirectory)
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -212,6 +228,7 @@ extension BaseTestSuite {
             let client = ProductPreviewClient.live(manifestURL: manifestURL, assetBaseURL: directory)
             _ = try await client.importProductPreviews { _ in }
 
+            // GIVEN the manifest advertises a checksum that does not match the changed dump bytes.
             let corruptedDumpData = Data(
                 """
                 {"source":0,"energy":50,"barcode":"123456789","measurement":1,"name":"Changed oats","brand":"Acme"}
@@ -226,11 +243,14 @@ extension BaseTestSuite {
             .write(to: manifestURL)
             try corruptedDumpData.write(to: dumpURL)
 
+            // WHEN importing product previews again.
             let summary = try await client.importProductPreviews { _ in }
 
+            // THEN the failed file is skipped without counting a new import.
             #expect(summary.importedProductCount == 1)
             #expect(summary.importedFileCount == 0)
 
+            // THEN the previous cache and file checksum metadata are preserved.
             try await database.read { db in
                 let preview = try #require(try ProductPreview.fetchOne(db))
                 let fileRecord = try #require(try ProductPreviewFileImportRecord.fetchOne(db))
