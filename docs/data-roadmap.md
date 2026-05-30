@@ -29,7 +29,7 @@ This is intentionally not the full nutrition-tracking schema yet.
 
 ## Constraints For The Next Iteration
 
-- keep using `sqlite-data` and explicit migrations
+- keep using `sqlite-data` and explicit schema definitions while the app is pre-production
 - store user-entered facts separately from derived plan outputs
 - prefer history tables for time-series data such as weight and food logs
 - add indexes for diary date lookups and foreign keys when the logging tables are introduced

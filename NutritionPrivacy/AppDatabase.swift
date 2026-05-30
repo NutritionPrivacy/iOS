@@ -15,9 +15,7 @@ extension DependencyValues {
 
         let database = try SQLiteData.defaultDatabase(path: databaseURL.path)
         var migrator = DatabaseMigrator()
-#if DEBUG
         migrator.eraseDatabaseOnSchemaChange = true
-#endif
         migrator.registerMigration("Create onboarding persistence tables") { db in
             try #sql(
                 """
@@ -110,6 +108,7 @@ extension DependencyValues {
                   "energy" INTEGER NOT NULL,
                   "measurement" INTEGER NOT NULL,
                   "source" INTEGER NOT NULL,
+                  "fileName" TEXT NOT NULL,
                   "importedAt" TEXT NOT NULL
                 ) STRICT
                 """
@@ -120,6 +119,23 @@ extension DependencyValues {
                 """
                 CREATE TABLE "productPreviewImports" (
                   "id" TEXT PRIMARY KEY NOT NULL,
+                  "manifestDigest" TEXT,
+                  "importedAt" TEXT NOT NULL,
+                  "productCount" INTEGER NOT NULL,
+                  "skippedProductCount" INTEGER NOT NULL
+                ) STRICT
+                """
+            )
+            .execute(db)
+
+            try #sql(
+                """
+                CREATE TABLE "productPreviewFileImports" (
+                  "id" TEXT PRIMARY KEY NOT NULL,
+                  "fileName" TEXT NOT NULL,
+                  "language" TEXT NOT NULL,
+                  "source" INTEGER NOT NULL,
+                  "sha256" TEXT NOT NULL,
                   "importedAt" TEXT NOT NULL,
                   "productCount" INTEGER NOT NULL,
                   "skippedProductCount" INTEGER NOT NULL
@@ -140,40 +156,6 @@ extension DependencyValues {
                 """
                 CREATE INDEX IF NOT EXISTS "idx_productPreviews_barcode"
                 ON "productPreviews"("barcode")
-                """
-            )
-            .execute(db)
-        }
-        migrator.registerMigration("Add product preview import manifest digest") { db in
-            try #sql(
-                """
-                ALTER TABLE "productPreviewImports"
-                ADD COLUMN "manifestDigest" TEXT
-                """
-            )
-            .execute(db)
-        }
-        migrator.registerMigration("Create product preview file import records") { db in
-            try #sql(
-                """
-                ALTER TABLE "productPreviews"
-                ADD COLUMN "fileName" TEXT NOT NULL DEFAULT ''
-                """
-            )
-            .execute(db)
-
-            try #sql(
-                """
-                CREATE TABLE "productPreviewFileImports" (
-                  "id" TEXT PRIMARY KEY NOT NULL,
-                  "fileName" TEXT NOT NULL,
-                  "language" TEXT NOT NULL,
-                  "source" INTEGER NOT NULL,
-                  "sha256" TEXT NOT NULL,
-                  "importedAt" TEXT NOT NULL,
-                  "productCount" INTEGER NOT NULL,
-                  "skippedProductCount" INTEGER NOT NULL
-                ) STRICT
                 """
             )
             .execute(db)
