@@ -35,7 +35,7 @@ final class AppCoordinator {
     }
 
     private func startProductPreviewImport() {
-        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+        guard !isTesting else { return }
 
         productPreviewImportTask = Task { [productPreviewClient] in
             do {
