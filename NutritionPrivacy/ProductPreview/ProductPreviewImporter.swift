@@ -77,6 +77,7 @@ struct ProductPreviewImporter: Sendable {
                 try await saveFileImportRecord(file, summary: fileSummary)
             } catch ProductPreviewImportError.checksumMismatch {
                 // Keep the previous cache for this file.
+                skippedProductCount += cachedFileImports[file.id]?.skippedProductCount ?? 0
                 continue
             }
         }

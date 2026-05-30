@@ -261,6 +261,67 @@ extension BaseTestSuite {
             }
         }
 
+        @Test(.dependency(\.date.now, Date(timeIntervalSince1970: 1_800_000_000)))
+        func importProductPreviewsPreservesSkippedCountWhenChangedFileChecksumFails() async throws {
+            // GIVEN an already-imported dump file with one malformed product row.
+            let directory = FileManager.default.temporaryDirectory
+                .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            defer { try? FileManager.default.removeItem(at: directory) }
+
+            let manifestURL = directory.appending(path: "overview.json")
+            let dumpURL = directory.appending(path: "products.json")
+
+            let firstDumpData = Data(
+                """
+                {"source":0,"energy":42,"barcode":"123456789","measurement":1,"name":"Oats","brand":"Acme"}
+                {"source":0,"energy":"invalid","barcode":"987654321","measurement":1,"name":"Broken"}
+
+                """.utf8
+            )
+            try Data(
+                """
+                [{"language":"english","files":[{"source":0,"name":"products.json","sha256":"\(sha256(firstDumpData))"}]}]
+                """.utf8
+            )
+            .write(to: manifestURL)
+            try firstDumpData.write(to: dumpURL)
+
+            let client = ProductPreviewClient.live(manifestURL: manifestURL, assetBaseURL: directory)
+            _ = try await client.importProductPreviews { _ in }
+
+            // GIVEN the manifest advertises a changed file whose bytes fail checksum verification.
+            let changedDumpData = Data(
+                """
+                {"source":0,"energy":50,"barcode":"123456789","measurement":1,"name":"Changed oats","brand":"Acme"}
+
+                """.utf8
+            )
+            try Data(
+                """
+                [{"language":"english","files":[{"source":0,"name":"products.json","sha256":"0000000000000000000000000000000000000000000000000000000000000000"}]}]
+                """.utf8
+            )
+            .write(to: manifestURL)
+            try changedDumpData.write(to: dumpURL)
+
+            // WHEN importing product previews again.
+            let summary = try await client.importProductPreviews { _ in }
+
+            // THEN the summary continues to represent the cached file metadata.
+            #expect(summary.importedProductCount == 1)
+            #expect(summary.skippedProductCount == 1)
+            #expect(summary.importedFileCount == 0)
+
+            try await database.read { db in
+                let importRecord = try #require(try ProductPreviewImportRecord.fetchOne(db))
+                let fileRecord = try #require(try ProductPreviewFileImportRecord.fetchOne(db))
+
+                #expect(importRecord.skippedProductCount == 1)
+                #expect(fileRecord.skippedProductCount == 1)
+            }
+        }
+
         private func sha256(_ data: Data) -> String {
             SHA256.hash(data: data)
                 .map { String(format: "%02x", $0) }
