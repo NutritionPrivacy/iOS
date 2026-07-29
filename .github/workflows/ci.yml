@@ -19,6 +19,9 @@ env:
   PROJECT_PATH: NutritionPrivacy.xcodeproj
   SCHEME: NutritionPrivacy
   SIMULATOR_NAME: iPhone 17 Pro
+  DERIVED_DATA_PATH: .build/ci-derived-data
+  COMPILATION_CACHE_VERSION: v1
+  XCODE_VERSION: "26.0"
 
 jobs:
   test:
@@ -32,15 +35,52 @@ jobs:
       - name: Select Xcode 26
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: "26.0"
+          xcode-version: ${{ env.XCODE_VERSION }}
+
+      - name: Restore Xcode compilation cache
+        id: restore-compilation-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.DERIVED_DATA_PATH }}/CompilationCache.noindex
+          key: xcode-compilation-${{ env.COMPILATION_CACHE_VERSION }}-${{ runner.os }}-${{ runner.arch }}-xcode-${{ env.XCODE_VERSION }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            xcode-compilation-${{ env.COMPILATION_CACHE_VERSION }}-${{ runner.os }}-${{ runner.arch }}-xcode-${{ env.XCODE_VERSION }}-
 
       - name: Run tests
         shell: bash
         run: |
           set -o pipefail
+          started_at=$(date +%s)
+
           xcodebuild test \
             -skipMacroValidation \
+            -derivedDataPath "$DERIVED_DATA_PATH" \
             -project "$PROJECT_PATH" \
             -scheme "$SCHEME" \
             -destination "platform=iOS Simulator,name=$SIMULATOR_NAME,OS=latest" \
+            COMPILATION_CACHE_ENABLE_CACHING=YES \
+            COMPILATION_CACHE_ENABLE_DIAGNOSTIC_REMARKS=YES \
             | xcbeautify --renderer github-actions
+
+          elapsed_seconds=$(($(date +%s) - started_at))
+          cache_size=$(du -sh "$DERIVED_DATA_PATH/CompilationCache.noindex" 2>/dev/null | cut -f1 || true)
+
+          {
+            echo "## Xcode compilation cache"
+            echo
+            echo "| Metric | Value |"
+            echo "| --- | --- |"
+            echo "| Restored a prior cache | ${{ steps.restore-compilation-cache.outputs.cache-matched-key != '' }} |"
+            echo "| Matched cache key | \`${{ steps.restore-compilation-cache.outputs.cache-matched-key || 'none' }}\` |"
+            echo "| Test duration | ${elapsed_seconds}s |"
+            echo "| Cache size after tests | ${cache_size:-not created} |"
+            echo
+            echo "Re-run this workflow to compare a warm compilation cache with the first run."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Save Xcode compilation cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.DERIVED_DATA_PATH }}/CompilationCache.noindex
+          key: ${{ steps.restore-compilation-cache.outputs.cache-primary-key }}
