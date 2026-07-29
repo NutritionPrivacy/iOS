@@ -21,12 +21,12 @@ env:
   SIMULATOR_NAME: iPhone 17 Pro
   DERIVED_DATA_PATH: .build/ci-derived-data
   COMPILATION_CACHE_VERSION: v1
-  XCODE_VERSION: "26.0"
+  XCODE_VERSION: "26.4.1"
 
 jobs:
   test:
     if: ${{ !github.event.pull_request.draft }}
-    runs-on: macos-latest
+    runs-on: macos-26
 
     steps:
       - name: Checkout
