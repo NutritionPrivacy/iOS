@@ -20,7 +20,8 @@ env:
   SCHEME: NutritionPrivacy
   SIMULATOR_NAME: iPhone 17 Pro
   DERIVED_DATA_PATH: .build/ci-derived-data
-  COMPILATION_CACHE_VERSION: v1
+  PACKAGE_CACHE_VERSION: v1
+  COMPILATION_CACHE_VERSION: v2
   XCODE_VERSION: "26.4.1"
 
 jobs:
@@ -37,12 +38,25 @@ jobs:
         with:
           xcode-version: ${{ env.XCODE_VERSION }}
 
-      - name: Restore Xcode compilation cache
-        id: restore-compilation-cache
-        uses: actions/cache/restore@v4
+      - name: Cache Swift package inputs
+        id: spm-input-cache
+        uses: actions/cache@v5
+        with:
+          path: |
+            ${{ env.DERIVED_DATA_PATH }}/SourcePackages/checkouts
+            ${{ env.DERIVED_DATA_PATH }}/SourcePackages/repositories
+            ${{ env.DERIVED_DATA_PATH }}/SourcePackages/artifacts
+            ${{ env.DERIVED_DATA_PATH }}/SourcePackages/workspace-state.json
+          key: spm-inputs-${{ env.PACKAGE_CACHE_VERSION }}-${{ runner.os }}-${{ runner.arch }}-xcode-${{ env.XCODE_VERSION }}-${{ hashFiles('NutritionPrivacy.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+          restore-keys: |
+            spm-inputs-${{ env.PACKAGE_CACHE_VERSION }}-${{ runner.os }}-${{ runner.arch }}-xcode-${{ env.XCODE_VERSION }}-
+
+      - name: Cache Xcode compilation results
+        id: compilation-cache
+        uses: actions/cache@v5
         with:
           path: ${{ env.DERIVED_DATA_PATH }}/CompilationCache.noindex
-          key: xcode-compilation-${{ env.COMPILATION_CACHE_VERSION }}-${{ runner.os }}-${{ runner.arch }}-xcode-${{ env.XCODE_VERSION }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: xcode-compilation-${{ env.COMPILATION_CACHE_VERSION }}-${{ runner.os }}-${{ runner.arch }}-xcode-${{ env.XCODE_VERSION }}-${{ hashFiles('NutritionPrivacy.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved', 'NutritionPrivacy.xcodeproj/project.pbxproj') }}
           restore-keys: |
             xcode-compilation-${{ env.COMPILATION_CACHE_VERSION }}-${{ runner.os }}-${{ runner.arch }}-xcode-${{ env.XCODE_VERSION }}-
 
@@ -70,17 +84,11 @@ jobs:
             echo
             echo "| Metric | Value |"
             echo "| --- | --- |"
-            echo "| Restored a prior cache | ${{ steps.restore-compilation-cache.outputs.cache-matched-key != '' }} |"
-            echo "| Matched cache key | \`${{ steps.restore-compilation-cache.outputs.cache-matched-key || 'none' }}\` |"
+            echo "| Exact compilation cache hit | ${{ steps.compilation-cache.outputs.cache-hit == 'true' }} |"
+            echo "| Swift package input cache hit | ${{ steps.spm-input-cache.outputs.cache-hit == 'true' }} |"
+            echo "| Compilation cache key | \`xcode-compilation-${{ env.COMPILATION_CACHE_VERSION }}-${{ runner.os }}-${{ runner.arch }}-xcode-${{ env.XCODE_VERSION }}\` + lock/project hash |"
             echo "| Test duration | ${elapsed_seconds}s |"
             echo "| Cache size after tests | ${cache_size:-not created} |"
             echo
             echo "Re-run this workflow to compare a warm compilation cache with the first run."
           } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Save Xcode compilation cache
-        if: always()
-        uses: actions/cache/save@v4
-        with:
-          path: ${{ env.DERIVED_DATA_PATH }}/CompilationCache.noindex
-          key: ${{ steps.restore-compilation-cache.outputs.cache-primary-key }}
