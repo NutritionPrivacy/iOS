@@ -60,6 +60,24 @@ jobs:
           restore-keys: |
             xcode-compilation-${{ env.COMPILATION_CACHE_VERSION }}-${{ runner.os }}-${{ runner.arch }}-xcode-${{ env.XCODE_VERSION }}-
 
+      - name: Warm simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          simulator_udid="$(xcrun simctl list --json devices available "$SIMULATOR_NAME" | jq -r '[.devices | to_entries | sort_by(.key) | reverse[] | .value[] | .udid][0] // empty')"
+
+          if [[ -z "$simulator_udid" ]]; then
+            echo "No available simulator named $SIMULATOR_NAME" >&2
+            exit 1
+          fi
+
+          echo "SIMULATOR_UDID=$simulator_udid" >> "$GITHUB_ENV"
+
+          # Start booting asynchronously so simulator setup overlaps the clean build.
+          xcrun simctl boot "$simulator_udid" 2>/dev/null || true
+          open -a Simulator --args -CurrentDeviceUDID "$simulator_udid"
+
       - name: Run tests
         shell: bash
         run: |
@@ -71,7 +89,7 @@ jobs:
             -derivedDataPath "$DERIVED_DATA_PATH" \
             -project "$PROJECT_PATH" \
             -scheme "$SCHEME" \
-            -destination "platform=iOS Simulator,name=$SIMULATOR_NAME,OS=latest" \
+            -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
             COMPILATION_CACHE_ENABLE_CACHING=YES \
             COMPILATION_CACHE_ENABLE_DIAGNOSTIC_REMARKS=YES \
             | xcbeautify --renderer github-actions
