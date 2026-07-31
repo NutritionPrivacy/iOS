@@ -19,11 +19,15 @@ env:
   PROJECT_PATH: NutritionPrivacy.xcodeproj
   SCHEME: NutritionPrivacy
   SIMULATOR_NAME: iPhone 17 Pro
+  DERIVED_DATA_PATH: .build/ci-derived-data
+  PACKAGE_CACHE_VERSION: v1
+  COMPILATION_CACHE_VERSION: v2
+  XCODE_VERSION: "26.4.1"
 
 jobs:
   test:
     if: ${{ !github.event.pull_request.draft }}
-    runs-on: macos-latest
+    runs-on: macos-26
 
     steps:
       - name: Checkout
@@ -32,15 +36,77 @@ jobs:
       - name: Select Xcode 26
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: "26.0"
+          xcode-version: ${{ env.XCODE_VERSION }}
+
+      - name: Cache Swift package inputs
+        id: spm-input-cache
+        uses: actions/cache@v5
+        with:
+          path: |
+            ${{ env.DERIVED_DATA_PATH }}/SourcePackages/checkouts
+            ${{ env.DERIVED_DATA_PATH }}/SourcePackages/repositories
+            ${{ env.DERIVED_DATA_PATH }}/SourcePackages/artifacts
+            ${{ env.DERIVED_DATA_PATH }}/SourcePackages/workspace-state.json
+          key: spm-inputs-${{ env.PACKAGE_CACHE_VERSION }}-${{ runner.os }}-${{ runner.arch }}-xcode-${{ env.XCODE_VERSION }}-${{ hashFiles('NutritionPrivacy.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+          restore-keys: |
+            spm-inputs-${{ env.PACKAGE_CACHE_VERSION }}-${{ runner.os }}-${{ runner.arch }}-xcode-${{ env.XCODE_VERSION }}-
+
+      - name: Cache Xcode compilation results
+        id: compilation-cache
+        uses: actions/cache@v5
+        with:
+          path: ${{ env.DERIVED_DATA_PATH }}/CompilationCache.noindex
+          key: xcode-compilation-${{ env.COMPILATION_CACHE_VERSION }}-${{ runner.os }}-${{ runner.arch }}-xcode-${{ env.XCODE_VERSION }}-${{ hashFiles('NutritionPrivacy.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved', 'NutritionPrivacy.xcodeproj/project.pbxproj') }}
+          restore-keys: |
+            xcode-compilation-${{ env.COMPILATION_CACHE_VERSION }}-${{ runner.os }}-${{ runner.arch }}-xcode-${{ env.XCODE_VERSION }}-
+
+      - name: Warm simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          simulator_udid="$(xcrun simctl list --json devices available "$SIMULATOR_NAME" | jq -r '[.devices | to_entries | sort_by(.key) | reverse[] | .value[] | .udid][0] // empty')"
+
+          if [[ -z "$simulator_udid" ]]; then
+            echo "No available simulator named $SIMULATOR_NAME" >&2
+            exit 1
+          fi
+
+          echo "SIMULATOR_UDID=$simulator_udid" >> "$GITHUB_ENV"
+
+          # Start booting asynchronously so simulator setup overlaps the clean build.
+          xcrun simctl boot "$simulator_udid" 2>/dev/null || true
+          open -a Simulator --args -CurrentDeviceUDID "$simulator_udid"
 
       - name: Run tests
         shell: bash
         run: |
           set -o pipefail
+          started_at=$(date +%s)
+
           xcodebuild test \
             -skipMacroValidation \
+            -derivedDataPath "$DERIVED_DATA_PATH" \
             -project "$PROJECT_PATH" \
             -scheme "$SCHEME" \
-            -destination "platform=iOS Simulator,name=$SIMULATOR_NAME,OS=latest" \
+            -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
+            COMPILATION_CACHE_ENABLE_CACHING=YES \
+            COMPILATION_CACHE_ENABLE_DIAGNOSTIC_REMARKS=YES \
             | xcbeautify --renderer github-actions
+
+          elapsed_seconds=$(($(date +%s) - started_at))
+          cache_size=$(du -sh "$DERIVED_DATA_PATH/CompilationCache.noindex" 2>/dev/null | cut -f1 || true)
+
+          {
+            echo "## Xcode compilation cache"
+            echo
+            echo "| Metric | Value |"
+            echo "| --- | --- |"
+            echo "| Exact compilation cache hit | ${{ steps.compilation-cache.outputs.cache-hit == 'true' }} |"
+            echo "| Swift package input cache hit | ${{ steps.spm-input-cache.outputs.cache-hit == 'true' }} |"
+            echo "| Compilation cache key | \`xcode-compilation-${{ env.COMPILATION_CACHE_VERSION }}-${{ runner.os }}-${{ runner.arch }}-xcode-${{ env.XCODE_VERSION }}\` + lock/project hash |"
+            echo "| Test duration | ${elapsed_seconds}s |"
+            echo "| Cache size after tests | ${cache_size:-not created} |"
+            echo
+            echo "Re-run this workflow to compare a warm compilation cache with the first run."
+          } >> "$GITHUB_STEP_SUMMARY"
